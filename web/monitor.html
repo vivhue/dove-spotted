@@ -404,9 +404,15 @@
         <div>
           <h1 class="title">Dove Spotted Live Monitor</h1>
           <p class="subtitle">rPPG + pose fusion for cardiac distress and fall detection</p>
+          <p class="subtitle" id="sessionMeta">Session: --</p>
         </div>
         <div id="status" class="status-pill status-initializing">Initializing</div>
       </div>
+      <section class="card" style="margin-top: 12px">
+        <p class="label">Pairing Code (share with caregiver: /pair CODE)</p>
+        <p class="value" id="pairingCode" style="font-size: 2rem; letter-spacing: 0.12em">------</p>
+        <p class="subtitle" id="caregiverLink">Caregiver link: --</p>
+      </section>
 
       <section class="grid">
         <article class="card">
@@ -552,6 +558,9 @@
       const bpmSliderEl = document.getElementById("bpmSlider");
       const bpmSliderValueEl = document.getElementById("bpmSliderValue");
       const testAlertBtnEl = document.getElementById("btnTestAlert");
+      const pairingCodeEl = document.getElementById("pairingCode");
+      const caregiverLinkEl = document.getElementById("caregiverLink");
+      const sessionMetaEl = document.getElementById("sessionMeta");
       const issueButtons = Array.from(document.querySelectorAll(".issue-btn[data-issue]"));
       let recentEvents = [];
       let wsConnected = false;
@@ -559,6 +568,7 @@
       let currentHeartIssue = null;
       let currentManualBpm = 0;
       let manualBpmTimer = null;
+      let currentSessionId = null;
 
       const stateFromApi = async () => {
         try {
@@ -624,8 +634,14 @@
       }
 
       async function sendTestAlert() {
+        if (!currentSessionId) {
+          feedHintEl.textContent = "Session is not ready yet.";
+          return;
+        }
         try {
-          const res = await fetch("/api/test-alert", { method: "POST" });
+          const res = await fetch(`/api/test-alert?sessionId=${encodeURIComponent(currentSessionId)}`, {
+            method: "POST",
+          });
           if (!res.ok) {
             const payload = await res.json().catch(() => ({}));
             const detail = payload.detail || "Failed to send test alert.";
@@ -636,6 +652,26 @@
         } catch (_err) {
           feedHintEl.textContent = "Failed to send test alert.";
         }
+      }
+
+      async function ensureSession() {
+        const saved = window.localStorage.getItem("monitorSessionId");
+        try {
+          const res = await fetch("/api/session/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: saved || null }),
+          });
+          if (!res.ok) return;
+          const payload = await res.json();
+          currentSessionId = payload.sessionId || null;
+          if (currentSessionId) {
+            window.localStorage.setItem("monitorSessionId", currentSessionId);
+          }
+          pairingCodeEl.textContent = payload.pairingCode || "------";
+          caregiverLinkEl.textContent = `Caregiver link: ${payload.caregiverUrl || "--"}`;
+          sessionMetaEl.textContent = `Session: ${currentSessionId || "--"}`;
+        } catch (_err) {}
       }
 
       function updateIssueButtons() {
@@ -801,6 +837,7 @@
       }
 
       updateConnectionBadge();
+      ensureSession();
       stateFromApi();
       eventsFromApi();
       connectSocket();

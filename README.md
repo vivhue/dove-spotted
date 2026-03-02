@@ -7,7 +7,7 @@ Webcam-only monitoring service that:
 - Tracks full-body box with hybrid pose + tracker + detector fallback.
 - Fuses both streams into a single distress score.
 - Pushes live updates to a web dashboard.
-- Sends SMS alerts for critical events.
+- Sends Telegram alerts for RED events (fall / cardiac distress).
 - Tracks fainting patterns: standing collapse, ground fall, and seated slump.
 
 ## Architecture
@@ -16,10 +16,13 @@ Webcam-only monitoring service that:
 - `monitor/pose.py`: MediaPipe posture + fall-risk heuristics.
 - `monitor/body_tracker.py`: whole-body tracking (pose + CSRT/KCF + HOG fallback).
 - `monitor/fusion.py`: multi-signal risk fusion and event detection.
-- `monitor/alerts.py`: Twilio SMS alerts with cooldown.
+- `monitor/alerts.py`: Twilio SMS alerts with cooldown (optional).
+- `monitor/session_store.py`: monitor sessions, pairing codes, and chat subscriptions.
+- `monitor/telegram_pairing.py`: Telegram polling bot and RED alert delivery.
 - `monitor/engine.py`: webcam loop and orchestration.
 - `main.py`: FastAPI API + WebSocket + dashboard serving.
-- `web/index.html`: caregiver dashboard UI.
+- `web/monitor.html`: elderly monitor page (webcam + pairing code).
+- `web/caregiver.html`: caregiver session dashboard.
 
 ## Quick Start
 
@@ -48,10 +51,9 @@ WARNING_HIGH_BPM=120
 CRITICAL_LOW_BPM=45
 CRITICAL_HIGH_BPM=130
 ALERT_COOLDOWN_SEC=120
-SMS_RECIPIENTS=+15551234567,+15559876543
-TWILIO_ACCOUNT_SID=...
-TWILIO_AUTH_TOKEN=...
-TWILIO_FROM_NUMBER=+15550001111
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_ALERT_COOLDOWN_SEC=120
+APP_PUBLIC_URL=http://127.0.0.1:8000
 ```
 
 4. Run:
@@ -60,16 +62,67 @@ TWILIO_FROM_NUMBER=+15550001111
 uvicorn main:app --reload
 ```
 
-5. Open dashboard:
+5. Open monitor:
 
 ```text
-http://127.0.0.1:8000
+http://127.0.0.1:8000/monitor
 ```
+
+## Telegram Caregiver Alerts
+
+1. Create a Telegram bot with `@BotFather` and copy your `TELEGRAM_BOT_TOKEN`.
+2. Put `TELEGRAM_BOT_TOKEN` and `APP_PUBLIC_URL` in `.env` (or shell env).
+3. Start backend:
+
+```bash
+uvicorn main:app --reload
+```
+
+4. Open `http://127.0.0.1:8000/monitor` and note the 6-digit pairing code.
+5. In Telegram, open your bot chat and send:
+
+```bash
+/pair <code>
+```
+
+6. Check current Telegram bot status (polling enabled):
+
+```bash
+curl http://127.0.0.1:8000/api/telegram/status
+```
+
+7. Trigger a demo RED alert for that monitor session:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/test-alert?sessionId=<sessionId>"
+```
+
+You should receive a caregiver message immediately in Telegram.
+
+8. Open caregiver dashboard:
+
+```text
+http://127.0.0.1:8000/caregiver/<sessionId>
+```
+
+Telegram send logic:
+- Monitor session shows a pairing code; caregiver uses `/pair <code>`.
+- Bot commands: `/start`, `/pair <code>`, `/status`, `/unpair`.
+- Sends for RED session events (`fall` or `cardiac_distress`) to caregivers paired to that session only.
+- Sends on RED transition (`previous != RED`, `current == RED`), or while RED persists after cooldown.
+- Cooldown is per (`sessionId`, `chatId`) via `TELEGRAM_ALERT_COOLDOWN_SEC`.
+- Local demo persistence files:
+  - `monitorSessions.json` (sessions + pairingCodeIndex)
+  - `telegramSubscriptions.json` (bySession + byChat)
 
 ## API
 
 - `GET /api/state`: latest fused monitoring state.
 - `GET /api/events`: recent detected events.
+- `POST /api/session/create`: create/resume monitor session; returns `{sessionId, pairingCode, caregiverUrl}`.
+- `GET /api/session/{sessionId}/status`: session latest vitals/risk/events.
+- `GET /api/telegram/status`: Telegram bot enabled + caregiver registration status.
+- `POST /api/test-alert?sessionId=...`: force a RED Telegram test alert for one session.
 - `GET /video_feed`: MJPEG live feed with person/face/forehead overlays.
 - `GET /api/frame.jpg`: latest preview frame (single JPEG snapshot endpoint).
 - `WS /ws/live`: real-time stream of state + events.
@@ -90,7 +143,7 @@ When fainting is detected, the live feed shows a large `FAINTED` banner for visi
 ## Notes
 
 - Set `SIMULATE_MODE=true` to run without a camera.
-- If Twilio credentials are missing, SMS sending is skipped automatically.
+- If `TELEGRAM_BOT_TOKEN` is missing, Telegram sending is skipped automatically.
 - This project is for prototyping/research only and is not a medical device.
 
 ## Troubleshooting Webcam

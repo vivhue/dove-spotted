@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dove Spotted Caregiver</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+        background: #f4f7fb;
+        color: #1f2530;
+      }
+      .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 20px 16px 30px;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid #dde4ef;
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 12px;
+      }
+      .title {
+        margin: 0 0 6px;
+        font-size: 1.7rem;
+      }
+      .muted {
+        color: #6d7481;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+      }
+      .label {
+        margin: 0;
+        font-size: 0.8rem;
+        color: #6d7481;
+      }
+      .value {
+        margin: 6px 0 0;
+        font-size: 1.2rem;
+        font-weight: 700;
+      }
+      .event-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+      }
+      .event {
+        border: 1px solid #dde4ef;
+        border-left: 4px solid #b1142f;
+        border-radius: 8px;
+        padding: 8px 10px;
+      }
+      .event-time {
+        margin: 0;
+        color: #6d7481;
+        font-size: 0.8rem;
+      }
+      .event-msg {
+        margin: 4px 0 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="card">
+        <h1 class="title">Caregiver Dashboard</h1>
+        <p class="muted" id="sessionLine">Session: --</p>
+        <p class="muted" id="pairingLine">Pairing Code: --</p>
+      </section>
+
+      <section class="card">
+        <div class="grid">
+          <article>
+            <p class="label">Status</p>
+            <p class="value" id="status">--</p>
+          </article>
+          <article>
+            <p class="label">Heart Rate</p>
+            <p class="value" id="bpm">--</p>
+          </article>
+          <article>
+            <p class="label">HR Confidence</p>
+            <p class="value" id="conf">--</p>
+          </article>
+          <article>
+            <p class="label">Distress Score</p>
+            <p class="value" id="distress">--</p>
+          </article>
+          <article>
+            <p class="label">Fall Risk</p>
+            <p class="value" id="fallRisk">--</p>
+          </article>
+          <article>
+            <p class="label">Faint Risk</p>
+            <p class="value" id="faintRisk">--</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 style="margin-top: 0">Recent Events</h2>
+        <ul id="events" class="event-list"></ul>
+      </section>
+    </main>
+
+    <script>
+      const sessionId = window.location.pathname.split("/").filter(Boolean).pop();
+      const sessionLineEl = document.getElementById("sessionLine");
+      const pairingLineEl = document.getElementById("pairingLine");
+      const statusEl = document.getElementById("status");
+      const bpmEl = document.getElementById("bpm");
+      const confEl = document.getElementById("conf");
+      const distressEl = document.getElementById("distress");
+      const fallRiskEl = document.getElementById("fallRisk");
+      const faintRiskEl = document.getElementById("faintRisk");
+      const eventsEl = document.getElementById("events");
+
+      const fmt = (v, d = 2) =>
+        v === null || v === undefined || Number.isNaN(Number(v)) ? "--" : Number(v).toFixed(d);
+
+      async function fetchStatus() {
+        if (!sessionId) return;
+        try {
+          const res = await fetch(`/api/session/${encodeURIComponent(sessionId)}/status`);
+          if (!res.ok) return;
+          const data = await res.json();
+          const state = data.latestState || {};
+          const risk = data.latestRisk || {};
+
+          sessionLineEl.textContent = `Session: ${data.sessionId || "--"}`;
+          pairingLineEl.textContent = `Pairing Code: ${data.pairingCode || "--"}`;
+          statusEl.textContent = risk.status || state.status || "--";
+          bpmEl.textContent = fmt(state.bpm, 1);
+          confEl.textContent = fmt(state.hr_confidence, 2);
+          distressEl.textContent = fmt(state.distress_score, 2);
+          fallRiskEl.textContent = fmt(state.fall_risk, 2);
+          faintRiskEl.textContent = fmt(state.faint_risk, 2);
+
+          const events = Array.isArray(data.events) ? data.events : [];
+          eventsEl.innerHTML = "";
+          if (events.length === 0) {
+            const li = document.createElement("li");
+            li.className = "event";
+            li.innerHTML =
+              '<p class="event-time">No events yet</p><p class="event-msg">System is monitoring.</p>';
+            eventsEl.appendChild(li);
+            return;
+          }
+
+          events.slice(0, 20).forEach((event) => {
+            const li = document.createElement("li");
+            li.className = "event";
+            li.innerHTML = `<p class="event-time">${event.timestamp || "--"} | ${event.event_type || "event"}</p><p class="event-msg">${event.message || ""}</p>`;
+            eventsEl.appendChild(li);
+          });
+        } catch (_err) {}
+      }
+
+      fetchStatus();
+      setInterval(fetchStatus, 1200);
+    </script>
+  </body>
+</html>

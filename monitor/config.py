@@ -46,6 +46,9 @@ class Settings:
     twilio_account_sid: str | None
     twilio_auth_token: str | None
     twilio_from_number: str | None
+    telegram_bot_token: str | None
+    telegram_alert_cooldown_sec: int
+    app_public_url: str | None
 
 
 def load_settings() -> Settings:
@@ -66,4 +69,7 @@ def load_settings() -> Settings:
         twilio_account_sid=os.getenv("TWILIO_ACCOUNT_SID"),
         twilio_auth_token=os.getenv("TWILIO_AUTH_TOKEN"),
         twilio_from_number=os.getenv("TWILIO_FROM_NUMBER"),
+        telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN"),
+        telegram_alert_cooldown_sec=_read_int("TELEGRAM_ALERT_COOLDOWN_SEC", 120),
+        app_public_url=os.getenv("APP_PUBLIC_URL"),
     )

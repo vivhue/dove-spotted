@@ -8,13 +8,15 @@ import threading
 import time
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from monitor.config import load_settings
 from monitor.engine import MonitoringEngine
+from monitor.session_store import SessionStore
 from monitor.schemas import DistressEvent, MonitorState
+from monitor.telegram_pairing import TelegramPairingBot
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -58,6 +60,11 @@ loop_ref: asyncio.AbstractEventLoop | None = None
 
 app = FastAPI(title="Dove Spotted Monitor", version="0.1.0")
 engine: MonitoringEngine | None = None
+session_store = SessionStore(
+    sessions_path=BASE_DIR / "monitorSessions.json",
+    subscriptions_path=BASE_DIR / "telegramSubscriptions.json",
+)
+telegram_bot = TelegramPairingBot(settings=settings, store=session_store)
 
 
 class HeartIssueRequest(BaseModel):
@@ -68,8 +75,13 @@ class ManualBpmRequest(BaseModel):
     bpm: float
 
 
+class SessionCreateRequest(BaseModel):
+    session_id: str | None = None
+
+
 def _on_engine_update(state: MonitorState, event: DistressEvent | None) -> None:
     global latest_state
+    active_session_id = session_store.active_session_id()
     with state_lock:
         latest_state = state
         if event is not None:
@@ -77,13 +89,31 @@ def _on_engine_update(state: MonitorState, event: DistressEvent | None) -> None:
 
     payload = {"type": "update", "state": state.to_dict()}
     if event is not None:
-        payload["event"] = event.to_dict()
+        event_payload = event.to_dict()
+        if active_session_id is not None:
+            event_payload["sessionId"] = active_session_id
+        payload["event"] = event_payload
 
     if loop_ref is not None and not loop_ref.is_closed():
         try:
             asyncio.run_coroutine_threadsafe(manager.broadcast(payload), loop_ref)
         except RuntimeError:
             logger.debug("Event loop unavailable during update broadcast")
+
+    if active_session_id is not None:
+        session_store.apply_state_update(active_session_id, state, event)
+        try:
+            telegram_bot.handle_state_update(
+                session_id=active_session_id,
+                status=state.status,
+                event_type=(event.event_type if event is not None else None),
+                reason=(event.message if event is not None else None),
+                hr=state.bpm,
+                confidence=state.hr_confidence,
+                timestamp=state.timestamp,
+            )
+        except Exception:
+            logger.exception("Telegram alert handling failed")
 
 
 def _on_preview_frame(frame_jpeg: bytes) -> None:
@@ -102,11 +132,13 @@ async def on_startup() -> None:
         on_preview=_on_preview_frame,
     )
     engine.start()
+    telegram_bot.start()
     logger.info("Server startup complete")
 
 
 @app.on_event("shutdown")
 async def on_shutdown() -> None:
+    telegram_bot.stop()
     if engine is not None:
         engine.stop()
     logger.info("Server shutdown complete")
@@ -114,7 +146,19 @@ async def on_shutdown() -> None:
 
 @app.get("/")
 async def dashboard() -> FileResponse:
-    return FileResponse(WEB_DIR / "index.html")
+    return FileResponse(WEB_DIR / "monitor.html")
+
+
+@app.get("/monitor")
+async def monitor_dashboard() -> FileResponse:
+    return FileResponse(WEB_DIR / "monitor.html")
+
+
+@app.get("/caregiver/{session_id}")
+async def caregiver_dashboard(session_id: str) -> FileResponse:
+    # The page reads session id from pathname.
+    _ = session_id
+    return FileResponse(WEB_DIR / "caregiver.html")
 
 
 def _preview_stream():
@@ -163,8 +207,49 @@ async def get_state() -> dict[str, Any]:
 
 @app.get("/api/events")
 async def get_events() -> list[dict[str, Any]]:
+    active_session_id = session_store.active_session_id()
     with state_lock:
-        return [event.to_dict() for event in list(recent_events)]
+        events = [event.to_dict() for event in list(recent_events)]
+    if active_session_id is not None:
+        for item in events:
+            item["sessionId"] = active_session_id
+    return events
+
+
+@app.post("/api/session/create")
+async def create_session(payload: SessionCreateRequest | None = None) -> dict[str, Any]:
+    requested_session = None if payload is None else payload.session_id
+    session_data = session_store.create_or_resume_session(requested_session)
+    session_id = session_data["sessionId"]
+    relative_url = f"/caregiver/{session_id}"
+    public_base = (settings.app_public_url or "").rstrip("/")
+    caregiver_url = f"{public_base}{relative_url}" if public_base else relative_url
+    return {
+        "sessionId": session_id,
+        "pairingCode": session_data["pairingCode"],
+        "caregiverUrl": caregiver_url,
+    }
+
+
+@app.get("/api/session/{session_id}/status")
+async def session_status(session_id: str) -> dict[str, Any]:
+    status = session_store.get_session_status(session_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return status
+
+
+@app.post("/api/test-alert")
+async def test_alert(sessionId: str = Query(..., min_length=1)) -> dict[str, Any]:
+    sent, detail = telegram_bot.send_test_alert(sessionId)
+    if not sent:
+        raise HTTPException(status_code=400, detail=detail)
+    return {"ok": True, "sent": True, "sessionId": sessionId}
+
+
+@app.get("/api/telegram/status")
+async def telegram_status() -> dict[str, Any]:
+    return telegram_bot.status()
 
 
 @app.post("/api/heart_issue")

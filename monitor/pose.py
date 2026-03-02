@@ -29,13 +29,27 @@ class PoseEstimator:
         if cv2 is None:
             raise RuntimeError("opencv-python is required for pose estimation")
 
-        self._pose = mp.solutions.pose.Pose(
-            static_image_mode=False,
-            model_complexity=1,
-            smooth_landmarks=True,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
-        )
+        mp_solutions = getattr(mp, "solutions", None)
+        mp_pose_module = getattr(mp_solutions, "pose", None) if mp_solutions is not None else None
+        pose_cls = getattr(mp_pose_module, "Pose", None) if mp_pose_module is not None else None
+        if pose_cls is None:
+            raise RuntimeError("mediapipe Pose API is unavailable in the installed version")
+
+        try:
+            self._pose = pose_cls(
+                static_image_mode=False,
+                model_complexity=1,
+                smooth_landmarks=True,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5,
+            )
+        except TypeError:
+            # Compatibility fallback for older MediaPipe builds with narrower constructor args.
+            self._pose = pose_cls(
+                static_image_mode=False,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5,
+            )
         self._prev_hip_y: float | None = None
         self._prev_shoulder_y: float | None = None
         self._prev_ts: float | None = None
