@@ -16,9 +16,9 @@
         --bg-end: #ffe2d3;
         --panel: rgba(255, 255, 255, 0.88);
         --ink: #1e1f25;
-        --muted: #6c6f7d;
-        --ok: #178f5b;
-        --warn: #c97307;
+        --muted: #4a5568;
+        --ok: #0f6a42;
+        --warn: #8a4b00;
         --critical: #b1142f;
         --accent: #0b6e80;
         --border: rgba(0, 0, 0, 0.08);
@@ -28,20 +28,25 @@
         box-sizing: border-box;
       }
 
+      html,
+      body {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
       body {
         margin: 0;
         min-height: 100vh;
         font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+        font-size: 20px;
         color: var(--ink);
-        background:
-          radial-gradient(circle at 15% 15%, rgba(255, 255, 255, 0.7), transparent 45%),
-          linear-gradient(145deg, var(--bg-start), var(--bg-end));
+        background: #efe7f8;
       }
 
       .wrap {
-        max-width: 1240px;
+        max-width: 1100px;
         margin: 0 auto;
-        padding: 24px 18px 36px;
+        padding: 28px;
       }
 
       .headline {
@@ -57,20 +62,26 @@
         letter-spacing: 0.01em;
         font-family: "Montserrat", "Segoe UI", "Trebuchet MS", sans-serif;
         font-weight: 800;
-        color: #ff7a00;
+        color: #0b3d91;
       }
 
       .subtitle {
         margin: 8px 0 0;
         color: var(--muted);
-        font-size: 0.95rem;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      .session-meta-hidden {
+        display: none;
       }
 
       .status-pill {
         border-radius: 999px;
         padding: 8px 16px;
         color: #fff;
-        font-weight: 600;
+        font-size: 20px;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.06em;
       }
@@ -93,81 +104,292 @@
 
       .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-        gap: 12px;
-        margin-top: 18px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+      }
+
+      /* Secondary info row: intentionally smaller than priority/camera content */
+      .grid .stat-card {
+        padding: 6px 8px;
+      }
+
+      .grid .stat-label {
+        font-size: 13px;
+      }
+
+      .grid .stat-value {
+        margin-top: 1px;
+        font-size: 1.12rem;
+      }
+
+      .grid .stat-note {
+        margin-top: 1px;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.15;
       }
 
       .camera-panel {
-        background: var(--panel);
+        background: #fff;
         border: 1px solid var(--border);
-        border-radius: 14px;
+        border-radius: 20px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        padding: 0;
+      }
+
+      .camera-title {
+        margin: 0;
+        padding: 12px 14px;
+        font-size: 22px;
+        font-weight: 800;
+        color: #fff;
+        background: #1f2937;
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+      }
+
+      .camera-panel-body {
         padding: 12px;
       }
 
       .controls-panel {
-        background: var(--panel);
+        background: #fff;
         border: 1px solid var(--border);
-        border-radius: 14px;
+        border-radius: 20px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        padding: 12px;
+        margin-top: 20px;
+      }
+
+      .quick-actions-panel {
+        margin-top: 20px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
         padding: 12px;
       }
 
       .live-layout {
-        margin-top: 16px;
+        margin-top: 30px;
         display: grid;
-        grid-template-columns: 1.85fr 1fr;
-        gap: 12px;
+        grid-template-columns: 2.2fr 1fr;
+        gap: 16px;
         align-items: start;
       }
 
       .priority-panel {
-        background: var(--panel);
+        background: #fff;
         border: 1px solid var(--border);
-        border-radius: 14px;
+        border-radius: 20px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
         padding: 12px;
+      }
+
+      .priority-panel.alert-red {
+        background: #ffe9ee;
+        border-color: #b1142f;
       }
 
       .priority-title {
         margin: 0 0 10px;
-        font-size: 0.9rem;
+        font-size: 20px;
+        font-weight: 700;
         color: var(--muted);
       }
 
       .priority-grid {
         display: grid;
-        gap: 10px;
+        gap: 16px;
       }
 
-      .priority-card {
+      /* Make Priority Alerts visually distinct by severity */
+      .priority-grid .stat-card {
+        position: relative;
+        border-left-width: 12px;
+        padding: 12px 14px 12px 16px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+      }
+
+      .priority-grid .stat-card::before {
+        position: absolute;
+        right: 12px;
+        top: 10px;
+        font-size: 1.45rem;
+        line-height: 1;
+      }
+
+      .priority-grid .stat-card.stat-normal {
+        background: #e9f8ef;
+        border-left-color: #1f7a4f;
+      }
+
+      .priority-grid .stat-card.stat-normal::before {
+        content: "✅";
+      }
+
+      .priority-grid .stat-card.stat-warning {
+        background: #fff4db;
+        border-left-color: #8a4b00;
+      }
+
+      .priority-grid .stat-card.stat-warning::before {
+        content: "⚠️";
+      }
+
+      .priority-grid .stat-card.stat-danger {
+        background: #ffe9ee;
+        border-left-color: #b1142f;
+      }
+
+      .priority-grid .stat-card.stat-danger::before {
+        content: "🚨";
+      }
+
+      .priority-grid .stat-card .stat-value {
+        font-size: 2.15rem;
+        letter-spacing: 0.01em;
+      }
+
+      .priority-grid .stat-card.stat-normal .stat-value {
+        color: #145a39;
+      }
+
+      .priority-grid .stat-card.stat-warning .stat-value {
+        color: #7a4300;
+      }
+
+      .priority-grid .stat-card.stat-danger .stat-value {
+        color: #8e1028;
+      }
+
+      .stat-card {
         background: #fff;
         border: 1px solid var(--border);
-        border-left: 5px solid #ff7a00;
-        border-radius: 12px;
-        padding: 12px;
+        border-left: 8px solid #1f7a4f;
+        border-radius: 20px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        padding: 10px 12px;
       }
 
-      .priority-label {
+      .stat-normal {
+        border-left-color: #1f7a4f;
+        background: #fff;
+      }
+
+      .stat-warning {
+        border-left-color: #8a4b00;
+        background: #fff;
+      }
+
+      .stat-danger {
+        border-left-color: #b1142f;
+        background: #fff;
+      }
+
+      .stat-label {
         margin: 0;
-        font-size: 0.83rem;
+        font-size: 18px;
+        font-weight: 800;
         color: var(--muted);
       }
 
-      .priority-value {
-        margin: 8px 0 0;
-        font-size: 1.55rem;
+      .stat-value {
+        margin: 4px 0 0;
+        font-size: 2rem;
         font-weight: 800;
+        color: var(--ink);
+        line-height: 1.1;
+      }
+
+      .stat-note {
+        margin: 4px 0 0;
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--muted);
+        line-height: 1.25;
       }
 
       .controls-title {
         margin: 0 0 10px;
-        font-size: 0.9rem;
+        font-size: 20px;
+        font-weight: 700;
         color: var(--muted);
+      }
+
+      .quick-actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+      }
+
+      .qa-btn {
+        min-height: 60px;
+        font-size: 1.1rem;
+        font-weight: 800;
+        border-radius: 16px;
+        border: 1px solid transparent;
+        padding: 12px 14px;
+        cursor: pointer;
+        transition:
+          transform 0.12s ease,
+          box-shadow 0.18s ease,
+          filter 0.18s ease;
+      }
+
+      .qa-emergency {
+        background: #b1142f;
+        color: #fff;
+        animation: emergency-pulse 1.8s ease-in-out infinite;
+      }
+
+      .qa-family {
+        background: #2b6cb0;
+        color: #fff;
+      }
+
+      .qa-safe {
+        background: #1f7a4f;
+        color: #fff;
+      }
+
+      .qa-silence {
+        background: #4a5568;
+        color: #fff;
+      }
+
+      .qa-emergency:hover {
+        box-shadow: 0 0 0 3px rgba(177, 20, 47, 0.2), 0 8px 20px rgba(177, 20, 47, 0.35);
+        transform: translateY(-1px);
+      }
+
+      .qa-family:hover {
+        box-shadow: 0 0 0 3px rgba(43, 108, 176, 0.2), 0 8px 20px rgba(43, 108, 176, 0.35);
+        transform: translateY(-1px);
+      }
+
+      .qa-safe:hover {
+        box-shadow: 0 0 0 3px rgba(31, 122, 79, 0.2), 0 8px 20px rgba(31, 122, 79, 0.35);
+        transform: translateY(-1px);
+      }
+
+      @keyframes emergency-pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(177, 20, 47, 0.24);
+          filter: saturate(1);
+        }
+        50% {
+          box-shadow: 0 0 0 5px rgba(177, 20, 47, 0.14);
+          filter: saturate(1.05);
+        }
       }
 
       .control-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 16px;
       }
 
       .issue-btn {
@@ -176,8 +398,8 @@
         color: var(--ink);
         border-radius: 10px;
         padding: 9px 12px;
-        font-size: 0.88rem;
-        font-weight: 600;
+        font-size: 20px;
+        font-weight: 700;
         cursor: pointer;
       }
 
@@ -197,35 +419,152 @@
 
       .slider-wrap {
         margin-top: 12px;
-        border-top: 1px solid var(--border);
-        padding-top: 10px;
+        border-top: none;
+        padding: 14px;
+        border-radius: 16px;
+        background: #efe7f8;
+        color: #1e1f25;
       }
 
       .slider-label {
         margin: 0 0 8px;
-        font-size: 0.86rem;
-        color: var(--muted);
+        font-size: 20px;
+        font-weight: 700;
+        color: #5b4636;
       }
 
       .slider-row {
         display: grid;
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 1fr;
         gap: 10px;
-        align-items: center;
       }
 
       .bpm-slider {
+        --thumb-color: #1f7a4f;
+        appearance: none;
         width: 100%;
+        height: 14px;
+        border-radius: 999px;
+        background: linear-gradient(
+          90deg,
+          #b1142f 0%,
+          #b1142f 22.5%,
+          #b45309 22.5%,
+          #b45309 30%,
+          #1f7a4f 30%,
+          #1f7a4f 50%,
+          #b45309 50%,
+          #b45309 65%,
+          #b1142f 65%,
+          #b1142f 100%
+        );
+        outline: none;
+      }
+
+      .bpm-slider::-webkit-slider-runnable-track {
+        height: 14px;
+        border-radius: 999px;
+        background: transparent;
+      }
+
+      .bpm-slider::-webkit-slider-thumb {
+        appearance: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--thumb-color);
+        border: 3px solid #fff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+        margin-top: -7px;
+        cursor: pointer;
+      }
+
+      .bpm-slider::-moz-range-track {
+        height: 14px;
+        border-radius: 999px;
+        background: transparent;
+      }
+
+      .bpm-slider::-moz-range-thumb {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--thumb-color);
+        border: 3px solid #fff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+        cursor: pointer;
+      }
+
+      .bpm-slider:active::-webkit-slider-thumb {
+        transform: scale(1.08);
+      }
+
+      .bpm-slider:active::-moz-range-thumb {
+        transform: scale(1.08);
       }
 
       .slider-value {
-        min-width: 64px;
-        text-align: right;
+        text-align: center;
+        font-size: 3.5rem;
+        line-height: 1;
+        font-weight: 800;
+        color: #fff;
+        position: relative;
+        width: fit-content;
+        margin: 0 auto;
+        padding: 6px 14px;
+        border-radius: 14px;
+        animation: bpm-beat 1.15s ease-in-out infinite;
+      }
+
+      .slider-value::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 14px;
+        z-index: -1;
+        filter: blur(10px);
+        opacity: 0.75;
+      }
+
+      .slider-value.zone-normal::before {
+        background: rgba(31, 122, 79, 0.85);
+      }
+
+      .slider-value.zone-warning::before {
+        background: rgba(180, 83, 9, 0.82);
+      }
+
+      .slider-value.zone-danger::before {
+        background: rgba(177, 20, 47, 0.86);
+      }
+
+      .slider-zone-note {
+        margin: 0;
+        text-align: center;
+        font-size: 16px;
         font-weight: 700;
+        color: #6b5a49;
+      }
+
+      @keyframes bpm-beat {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        18% {
+          transform: scale(1.06);
+        }
+        36% {
+          transform: scale(0.98);
+        }
+        54% {
+          transform: scale(1.04);
+        }
       }
 
       .danger-alert {
-        margin-top: 14px;
+        margin-top: 22px;
         background: #b1142f;
         color: #fff;
         border: 2px solid #7e0018;
@@ -245,6 +584,37 @@
         animation: danger-pulse 1.2s ease-in-out infinite;
       }
 
+      .critical-banner {
+        display: none;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        width: 100%;
+        background: #8e1028;
+        color: #fff;
+        text-align: center;
+        padding: 14px 18px;
+        font-size: 1.6rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .critical-banner.show {
+        display: block;
+        animation: critical-banner-flash 0.9s ease-in-out infinite;
+      }
+
+      @keyframes critical-banner-flash {
+        0%,
+        100% {
+          background: #8e1028;
+        }
+        50% {
+          background: #c3193b;
+        }
+      }
+
       @keyframes danger-pulse {
         0%,
         100% {
@@ -257,14 +627,9 @@
         }
       }
 
-      .camera-title {
-        margin: 0 0 8px;
-        font-size: 0.9rem;
-        color: var(--muted);
-      }
-
       .camera-feed-wrap {
         position: relative;
+        overflow: hidden;
       }
 
       .camera-feed {
@@ -279,56 +644,103 @@
 
       .faint-overlay {
         position: absolute;
-        top: 12px;
-        left: 12px;
-        right: 12px;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
         z-index: 2;
         display: none;
-        background: rgba(177, 20, 47, 0.95);
+        background: rgba(177, 20, 47, 0.72);
         color: #fff;
-        border: 2px solid #7e0018;
-        border-radius: 10px;
-        padding: 10px 12px;
+        border: 2px solid rgba(126, 0, 24, 0.92);
+        border-radius: 12px;
+        padding: 14px 16px;
         text-align: center;
-        font-size: clamp(0.95rem, 1.5vw, 1.15rem);
+        font-size: clamp(1.6rem, 2.5vw, 2rem);
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        box-shadow: 0 8px 18px rgba(177, 20, 47, 0.35);
+        text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+        width: min(92%, 760px);
       }
 
       .faint-overlay.show {
         display: block;
-        animation: danger-pulse 1s ease-in-out infinite;
+        animation: faint-flash 1s ease-in-out infinite;
+      }
+
+      @keyframes faint-flash {
+        0%,
+        100% {
+          background: rgba(177, 20, 47, 0.72);
+        }
+        50% {
+          background: rgba(177, 20, 47, 0.9);
+        }
       }
 
       .card {
-        background: var(--panel);
+        background: #fff;
         border: 1px solid var(--border);
-        border-radius: 14px;
+        border-radius: 20px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
         padding: 14px;
         backdrop-filter: blur(4px);
       }
 
+      .pairing-hero {
+        margin-top: 18px;
+        text-align: center;
+        border: 2px solid #0b3d91;
+        padding: 18px 20px;
+      }
+
+      .pairing-label {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 800;
+        color: #0b3d91;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .pairing-code {
+        margin: 8px 0 0;
+        font-family: "Montserrat", "Segoe UI", sans-serif;
+        font-size: clamp(3.4rem, 9vw, 5.2rem);
+        line-height: 1;
+        letter-spacing: 0.14em;
+        font-weight: 800;
+        color: #0b3d91;
+      }
+
+      .pairing-help {
+        margin: 10px 0 0;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--muted);
+      }
+
       .label {
-        font-size: 0.8rem;
+        font-size: 20px;
         color: var(--muted);
         margin: 0;
+        font-weight: 700;
       }
 
       .value {
         margin: 8px 0 0;
-        font-size: 1.45rem;
+        font-size: 30px;
         font-weight: 700;
       }
 
       .events {
-        margin-top: 22px;
+        margin-top: 28px;
       }
 
       .events h2 {
         margin: 0 0 10px;
-        font-size: 1.15rem;
+        font-size: 24px;
+        font-weight: 700;
       }
 
       .event-list {
@@ -336,14 +748,15 @@
         padding: 0;
         margin: 0;
         display: grid;
-        gap: 8px;
+        gap: 16px;
       }
 
       .event {
-        background: var(--panel);
+        background: #fff;
         border: 1px solid var(--border);
         border-left-width: 5px;
-        border-radius: 10px;
+        border-radius: 20px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
         padding: 10px 12px;
       }
 
@@ -356,30 +769,35 @@
       }
 
       .event-time {
-        font-size: 0.78rem;
+        font-size: 20px;
+        font-weight: 700;
         color: var(--muted);
       }
 
       .event-msg {
         margin: 3px 0 0;
-        font-size: 0.92rem;
+        font-size: 20px;
+        font-weight: 700;
       }
 
       .hint {
-        margin-top: 16px;
+        margin-top: 20px;
         color: var(--muted);
-        font-size: 0.84rem;
+        font-size: 20px;
+        font-weight: 700;
       }
 
       .feed-hint {
-        margin-top: 8px;
-        font-size: 0.83rem;
+        margin-top: 12px;
+        font-size: 20px;
+        font-weight: 700;
         color: var(--muted);
       }
 
       .conn {
-        margin-top: 6px;
-        font-size: 0.84rem;
+        margin-top: 12px;
+        font-size: 20px;
+        font-weight: 700;
         color: var(--muted);
       }
 
@@ -392,96 +810,96 @@
       }
 
       @media (max-width: 860px) {
+        .grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
         .live-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .grid {
           grid-template-columns: 1fr;
         }
       }
     </style>
   </head>
   <body>
+    <div id="criticalBanner" class="critical-banner">🚨 DANGER: PERSON IS IN DANGER 🚨</div>
     <main class="wrap">
       <div class="headline">
         <div>
           <h1 class="title">Dove Spotted Live Monitor</h1>
           <p class="subtitle">rPPG + pose fusion for cardiac distress and fall detection</p>
-          <p class="subtitle" id="sessionMeta">Session: --</p>
+          <p class="session-meta-hidden" id="sessionMeta">Session: --</p>
         </div>
         <div id="status" class="status-pill status-initializing">Initializing</div>
       </div>
-      <section class="card" style="margin-top: 12px">
-        <p class="label">Pairing Code (share with caregiver: /pair CODE)</p>
-        <p class="value" id="pairingCode" style="font-size: 2rem; letter-spacing: 0.12em">------</p>
-        <p class="subtitle" id="pairingExpiry">Code valid until: --</p>
-        <p class="subtitle" id="caregiverLink">Caregiver link: --</p>
+      <section class="card pairing-hero">
+        <p class="pairing-label">Caregiver Pairing Code</p>
+        <p class="pairing-code" id="pairingCode">------</p>
+        <p class="pairing-help">Send <strong>/pair CODE</strong> to your Telegram caregiver bot</p>
+        <p class="pairing-help" id="caregiverLink">Caregiver link: --</p>
       </section>
 
       <section class="grid">
-        <article class="card">
-          <p class="label">HR Confidence</p>
-          <p class="value" id="hrConfidence">--</p>
+        <article id="statPostureCard" class="stat-card stat-normal">
+          <p class="stat-label">🧍 Posture</p>
+          <p id="statPostureValue" class="stat-value">Standing</p>
+          <p id="statPostureNote" class="stat-note">Body position looks stable right now.</p>
         </article>
-        <article class="card">
-          <p class="label">Posture</p>
-          <p class="value" id="posture">--</p>
+        <article id="statPresenceCard" class="stat-card stat-normal">
+          <p class="stat-label">👤 Person Present</p>
+          <p id="statPresenceValue" class="stat-value">Yes</p>
+          <p id="statPresenceNote" class="stat-note">Person is clearly visible in camera view.</p>
         </article>
-        <article class="card">
-          <p class="label">Person Present</p>
-          <p class="value" id="personPresent">--</p>
+        <article id="statPatternCard" class="stat-card stat-normal">
+          <p class="stat-label">😵 Faint Pattern</p>
+          <p id="statPatternValue" class="stat-value">None</p>
+          <p id="statPatternNote" class="stat-note">No fainting movement pattern is currently detected.</p>
         </article>
-        <article class="card">
-          <p class="label">Person Source</p>
-          <p class="value" id="personSource">--</p>
-        </article>
-        <article class="card">
-          <p class="label">Slanting</p>
-          <p class="value" id="slanting">--</p>
-        </article>
-        <article class="card">
-          <p class="label">Seated Slump Score</p>
-          <p class="value" id="seatedSlumpScore">--</p>
-        </article>
-        <article class="card">
-          <p class="label">Faint Pattern</p>
-          <p class="value" id="faintType">--</p>
-        </article>
-        <article class="card">
-          <p class="label">Heart Issue</p>
-          <p class="value" id="heartIssue">--</p>
-        </article>
-        <article class="card">
-          <p class="label">Frame Rate</p>
-          <p class="value" id="fps">--</p>
+        <article id="statStatusCard" class="stat-card stat-normal">
+          <p class="stat-label">📊 System Status</p>
+          <p id="statStatusValue" class="stat-value">Normal</p>
+          <p id="statStatusNote" class="stat-note">Combined monitoring signals are stable.</p>
         </article>
       </section>
 
       <div class="live-layout">
         <section class="camera-panel">
-          <p class="camera-title">Live Camera Feed (person + face + forehead ROI)</p>
-          <div class="camera-feed-wrap">
-            <div id="faintOverlay" class="faint-overlay">Fainting Detected</div>
-            <img id="cameraFeed" class="camera-feed" src="/video_feed" alt="Live camera feed" />
+          <p class="camera-title">📷 Live Camera Feed</p>
+          <div class="camera-panel-body">
+            <div class="camera-feed-wrap">
+              <div id="faintOverlay" class="faint-overlay">⚠️ FAINTING DETECTED</div>
+              <img id="cameraFeed" class="camera-feed" src="/video_feed" alt="Live camera feed" />
+            </div>
+            <p class="feed-hint" id="feedHint">Waiting for preview frames...</p>
           </div>
-          <p class="feed-hint" id="feedHint">Waiting for preview frames...</p>
         </section>
 
         <section class="priority-panel">
-          <p class="priority-title">Priority Vitals</p>
+          <p class="priority-title">Priority Alerts</p>
           <div class="priority-grid">
-            <article class="priority-card">
-              <p class="priority-label">Heart Rate (BPM)</p>
-              <p class="priority-value" id="bpm">--</p>
+            <article id="cardHeart" class="stat-card stat-normal">
+              <p id="titleHeart" class="stat-label">❤️ Heart Rate</p>
+              <p id="subtitleHeart" class="stat-value">Normal</p>
+              <p id="noteHeart" class="stat-note">Waiting for pulse reading.</p>
             </article>
-            <article class="priority-card">
-              <p class="priority-label">Faint Risk</p>
-              <p class="priority-value" id="faintRisk">--</p>
+            <article id="cardFaint" class="stat-card stat-normal">
+              <p id="titleFaint" class="stat-label">😵 Fainting Risk</p>
+              <p id="subtitleFaint" class="stat-value">Low</p>
+              <p id="noteFaint" class="stat-note">No immediate fainting indicators.</p>
             </article>
-            <article class="priority-card">
-              <p class="priority-label">Fall Risk</p>
-              <p class="priority-value" id="fallRisk">--</p>
+            <article id="cardFall" class="stat-card stat-normal">
+              <p id="titleFall" class="stat-label">🧍 Fall Risk</p>
+              <p id="subtitleFall" class="stat-value">Low</p>
+              <p id="noteFall" class="stat-note">Posture and body motion look stable.</p>
             </article>
-            <article class="priority-card">
-              <p class="priority-label">Distress Score</p>
-              <p class="priority-value" id="distressScore">--</p>
+            <article id="cardDistress" class="stat-card stat-normal">
+              <p id="titleDistress" class="stat-label">🚨 Overall Distress</p>
+              <p id="subtitleDistress" class="stat-value">Normal</p>
+              <p id="noteDistress" class="stat-note">Combined distress score is in the safe range.</p>
             </article>
           </div>
         </section>
@@ -516,10 +934,21 @@
               value="0"
             />
             <span class="slider-value" id="bpmSliderValue">0 BPM</span>
+            <p class="slider-zone-note" id="bpmZoneNote">Very low zone (critical): below 45 BPM</p>
           </div>
           <div class="control-row" style="margin-top: 10px">
             <button class="issue-btn" id="btnTestAlert">Send Test Alert</button>
           </div>
+        </div>
+      </section>
+
+      <section class="quick-actions-panel">
+        <p class="controls-title">Quick Actions</p>
+        <div class="quick-actions-grid">
+          <button id="btnCallEmergency" class="qa-btn qa-emergency">📞 Call Emergency (911)</button>
+          <button id="btnAlertFamilyAction" class="qa-btn qa-family">📱 Alert Family Member</button>
+          <button id="btnMarkSafe" class="qa-btn qa-safe">✅ Mark as Safe - False Alarm</button>
+          <button id="btnSilenceAlarm" class="qa-btn qa-silence">🔕 Silence Alarm (5 min)</button>
         </div>
       </section>
 
@@ -536,31 +965,52 @@
 
     <script>
       const statusEl = document.getElementById("status");
-      const bpmEl = document.getElementById("bpm");
-      const hrConfidenceEl = document.getElementById("hrConfidence");
-      const postureEl = document.getElementById("posture");
-      const personPresentEl = document.getElementById("personPresent");
-      const personSourceEl = document.getElementById("personSource");
-      const slantingEl = document.getElementById("slanting");
-      const fallRiskEl = document.getElementById("fallRisk");
-      const faintRiskEl = document.getElementById("faintRisk");
-      const seatedSlumpScoreEl = document.getElementById("seatedSlumpScore");
-      const faintTypeEl = document.getElementById("faintType");
-      const heartIssueEl = document.getElementById("heartIssue");
-      const distressScoreEl = document.getElementById("distressScore");
-      const fpsEl = document.getElementById("fps");
+      const statPostureCardEl = document.getElementById("statPostureCard");
+      const statPostureValueEl = document.getElementById("statPostureValue");
+      const statPostureNoteEl = document.getElementById("statPostureNote");
+      const statPresenceCardEl = document.getElementById("statPresenceCard");
+      const statPresenceValueEl = document.getElementById("statPresenceValue");
+      const statPresenceNoteEl = document.getElementById("statPresenceNote");
+      const statPatternCardEl = document.getElementById("statPatternCard");
+      const statPatternValueEl = document.getElementById("statPatternValue");
+      const statPatternNoteEl = document.getElementById("statPatternNote");
+      const statStatusCardEl = document.getElementById("statStatusCard");
+      const statStatusValueEl = document.getElementById("statStatusValue");
+      const statStatusNoteEl = document.getElementById("statStatusNote");
+      const priorityPanelEl = document.querySelector(".priority-panel");
+      const cardHeartEl = document.getElementById("cardHeart");
+      const titleHeartEl = document.getElementById("titleHeart");
+      const subtitleHeartEl = document.getElementById("subtitleHeart");
+      const noteHeartEl = document.getElementById("noteHeart");
+      const cardFaintEl = document.getElementById("cardFaint");
+      const titleFaintEl = document.getElementById("titleFaint");
+      const subtitleFaintEl = document.getElementById("subtitleFaint");
+      const noteFaintEl = document.getElementById("noteFaint");
+      const cardFallEl = document.getElementById("cardFall");
+      const titleFallEl = document.getElementById("titleFall");
+      const subtitleFallEl = document.getElementById("subtitleFall");
+      const noteFallEl = document.getElementById("noteFall");
+      const cardDistressEl = document.getElementById("cardDistress");
+      const titleDistressEl = document.getElementById("titleDistress");
+      const subtitleDistressEl = document.getElementById("subtitleDistress");
+      const noteDistressEl = document.getElementById("noteDistress");
       const sourceHintEl = document.getElementById("sourceHint");
       const connStatusEl = document.getElementById("connStatus");
       const eventListEl = document.getElementById("eventList");
       const cameraFeedEl = document.getElementById("cameraFeed");
       const feedHintEl = document.getElementById("feedHint");
       const dangerAlertEl = document.getElementById("dangerAlert");
+      const criticalBannerEl = document.getElementById("criticalBanner");
       const faintOverlayEl = document.getElementById("faintOverlay");
       const bpmSliderEl = document.getElementById("bpmSlider");
       const bpmSliderValueEl = document.getElementById("bpmSliderValue");
+      const bpmZoneNoteEl = document.getElementById("bpmZoneNote");
       const testAlertBtnEl = document.getElementById("btnTestAlert");
+      const callEmergencyBtnEl = document.getElementById("btnCallEmergency");
+      const alertFamilyActionBtnEl = document.getElementById("btnAlertFamilyAction");
+      const markSafeBtnEl = document.getElementById("btnMarkSafe");
+      const silenceAlarmBtnEl = document.getElementById("btnSilenceAlarm");
       const pairingCodeEl = document.getElementById("pairingCode");
-      const pairingExpiryEl = document.getElementById("pairingExpiry");
       const caregiverLinkEl = document.getElementById("caregiverLink");
       const sessionMetaEl = document.getElementById("sessionMeta");
       const issueButtons = Array.from(document.querySelectorAll(".issue-btn[data-issue]"));
@@ -571,6 +1021,7 @@
       let currentManualBpm = 0;
       let manualBpmTimer = null;
       let currentSessionId = null;
+      let alarmSilencedUntil = 0;
 
       const stateFromApi = async () => {
         try {
@@ -598,18 +1049,66 @@
         return Number.isFinite(n) ? n : null;
       };
 
-      function formatDateTime(value) {
-        if (!value) return "--";
-        const d = new Date(value);
-        if (Number.isNaN(d.getTime())) return String(value);
-        return d.toLocaleString();
-      }
-
       function issueLabel(issue) {
         if (issue === "vt") return "Ventricular Tachycardia (VT)";
         if (issue === "vf") return "Ventricular Fibrillation (VF)";
         if (issue === "asystole") return "Asystole";
         return "--";
+      }
+
+      function faintTypeLabel(faintType) {
+        if (faintType === "standing_faint") return "standing collapse";
+        if (faintType === "ground_fall") return "ground fall";
+        if (faintType === "seated_slump") return "seated slump";
+        return "none";
+      }
+
+      function bpmZoneMeta(value) {
+        const bpm = Number(value);
+        if (!Number.isFinite(bpm)) {
+          return {
+            level: "warning",
+            color: "#0b3d91",
+            note: "Manual BPM not set.",
+          };
+        }
+        if (bpm <= 45) {
+          return { level: "danger", color: "#b1142f", note: "Critical low zone: below 45 BPM." };
+        }
+        if (bpm < 60) {
+          return { level: "warning", color: "#b45309", note: "Caution low zone: 45-59 BPM." };
+        }
+        if (bpm <= 100) {
+          return { level: "normal", color: "#1f7a4f", note: "Normal resting zone: 60-100 BPM." };
+        }
+        if (bpm < 130) {
+          return { level: "warning", color: "#b45309", note: "Caution high zone: 101-129 BPM." };
+        }
+        return { level: "danger", color: "#b1142f", note: "Critical high zone: 130+ BPM." };
+      }
+
+      function updateBpmSliderVisuals(value) {
+        const rounded = Math.round(Number(value));
+        bpmSliderValueEl.textContent = `${rounded} BPM`;
+        const zone = bpmZoneMeta(rounded);
+        bpmSliderValueEl.classList.remove("zone-normal", "zone-warning", "zone-danger");
+        bpmSliderValueEl.classList.add(`zone-${zone.level}`);
+        bpmZoneNoteEl.textContent = zone.note;
+        bpmZoneNoteEl.style.color = zone.color;
+        bpmSliderEl.style.setProperty("--thumb-color", zone.color);
+      }
+
+      function setStatCard(cardEl, valueEl, noteEl, level, valueText, noteText) {
+        cardEl.className = `stat-card stat-${level}`;
+        valueEl.textContent = valueText;
+        noteEl.textContent = noteText;
+      }
+
+      function setPriorityStat(cardEl, titleEl, valueEl, noteEl, level, titleText, valueText, noteText) {
+        cardEl.className = `stat-card stat-${level}`;
+        titleEl.textContent = titleText;
+        valueEl.textContent = valueText;
+        noteEl.textContent = noteText;
       }
 
       async function setHeartIssue(issue) {
@@ -638,11 +1137,11 @@
           const payload = await res.json();
           currentManualBpm = Number(payload.manual_bpm ?? clamped);
           bpmSliderEl.value = String(Math.round(currentManualBpm));
-          bpmSliderValueEl.textContent = `${Math.round(currentManualBpm)} BPM`;
+          updateBpmSliderVisuals(currentManualBpm);
         } catch (_err) {}
       }
 
-      async function sendTestAlert() {
+      async function sendTestAlert(successMessage = "Test alert sent to caregiver Telegram.") {
         if (!currentSessionId) {
           feedHintEl.textContent = "Session is not ready yet.";
           return;
@@ -657,7 +1156,7 @@
             feedHintEl.textContent = detail;
             return;
           }
-          feedHintEl.textContent = "Test alert sent to caregiver Telegram.";
+          feedHintEl.textContent = successMessage;
         } catch (_err) {
           feedHintEl.textContent = "Failed to send test alert.";
         }
@@ -678,7 +1177,6 @@
             window.localStorage.setItem("monitorSessionId", currentSessionId);
           }
           pairingCodeEl.textContent = payload.pairingCode || "------";
-          pairingExpiryEl.textContent = `Code valid until: ${formatDateTime(payload.pairingCodeExpiresAt)}`;
           caregiverLinkEl.textContent = `Caregiver link: ${payload.caregiverUrl || "--"}`;
           sessionMetaEl.textContent = `Session: ${currentSessionId || "--"}`;
         } catch (_err) {}
@@ -698,19 +1196,45 @@
         const manualBpm = numericOrNull(state.manual_bpm);
         const effectiveBpm = manualBpm !== null ? manualBpm : bpm;
         const criticalLowBpmDetected = effectiveBpm !== null && effectiveBpm <= 30;
+        const statusCritical = (state.status || "").toString().toLowerCase() === "critical";
+        const heartIssueDetected = Boolean(state.heart_issue);
+        const faintType = (state.faint_type || "").toString().toLowerCase().trim();
+        const faintPatternDetected = Boolean(faintType) && faintType !== "none" && faintType !== "--";
 
         if (criticalLowBpmDetected) {
-          reasons.push(`critical BPM (${fmt(effectiveBpm, 1)})`);
+          reasons.push(`CRITICAL BPM (${fmt(effectiveBpm, 1)})`);
+        }
+        if (heartIssueDetected) {
+          reasons.push(`HEART ISSUE (${issueLabel(state.heart_issue).toUpperCase()})`);
+        }
+        if (statusCritical && !criticalLowBpmDetected && !heartIssueDetected) {
+          reasons.push("CRITICAL MONITOR STATUS");
+        }
+        if (statusCritical && faintPatternDetected) {
+          reasons.push(`FAINT PATTERN (${faintTypeLabel(faintType).toUpperCase()})`);
         }
 
         if (reasons.length === 0) {
           dangerAlertEl.classList.remove("show");
           dangerAlertEl.textContent = "DANGER: Person is in danger.";
+          criticalBannerEl.classList.remove("show");
+          criticalBannerEl.textContent = "🚨 DANGER: PERSON IS IN DANGER 🚨";
+          return;
+        }
+
+        if (Date.now() < alarmSilencedUntil) {
+          dangerAlertEl.classList.remove("show");
+          dangerAlertEl.textContent = "DANGER: Person is in danger.";
+          criticalBannerEl.classList.remove("show");
+          criticalBannerEl.textContent = "🚨 DANGER: PERSON IS IN DANGER 🚨";
           return;
         }
 
         dangerAlertEl.classList.add("show");
-        dangerAlertEl.textContent = `DANGER: Person is in danger (${reasons.join(" + ")}).`;
+        const message = `DANGER: PERSON IS IN DANGER (${reasons.join(" + ")}).`;
+        dangerAlertEl.textContent = message;
+        criticalBannerEl.classList.add("show");
+        criticalBannerEl.textContent = `🚨 ${message} 🚨`;
       }
 
       function updateFaintOverlay(state) {
@@ -718,7 +1242,8 @@
         const faintType = (state.faint_type || "").toString().toLowerCase().trim();
         const faintTypeDetected = Boolean(faintType) && faintType !== "none" && faintType !== "--";
         const faintRiskDetected = faintRisk !== null && faintRisk >= 0.5;
-        const show = faintTypeDetected || faintRiskDetected;
+        const criticalDetected = (state.status || "").toString().toLowerCase() === "critical";
+        const show = faintTypeDetected || faintRiskDetected || criticalDetected;
         faintOverlayEl.classList.toggle("show", show);
       }
 
@@ -733,26 +1258,309 @@
       }
 
       function renderState(state) {
-        bpmEl.textContent = fmt(state.bpm, 1);
-        hrConfidenceEl.textContent = fmt(state.hr_confidence, 2);
-        postureEl.textContent = state.posture || "--";
-        personPresentEl.textContent = state.person_present ? "yes" : "no";
-        personSourceEl.textContent = state.person_source || "--";
-        slantingEl.textContent = state.slanting ? "yes" : "no";
-        fallRiskEl.textContent = fmt(state.fall_risk, 2);
-        faintRiskEl.textContent = fmt(state.faint_risk, 2);
-        seatedSlumpScoreEl.textContent = fmt(state.seated_slump_score, 2);
-        faintTypeEl.textContent = state.faint_type || "--";
-        heartIssueEl.textContent = issueLabel(state.heart_issue);
-        distressScoreEl.textContent = fmt(state.distress_score, 2);
-        fpsEl.textContent = fmt(state.fps, 1);
+        const bpm = numericOrNull(state.bpm);
+        const manualBpm = numericOrNull(state.manual_bpm);
+        const effectiveBpm = manualBpm !== null ? manualBpm : bpm;
+        const faintRisk = numericOrNull(state.faint_risk) ?? 0.0;
+        const fallRisk = numericOrNull(state.fall_risk) ?? 0.0;
+        const distressScore = numericOrNull(state.distress_score) ?? 0.0;
+        const slump = numericOrNull(state.seated_slump_score);
+        const faintType = (state.faint_type || "").toString().toLowerCase();
+
+        if (effectiveBpm === null) {
+          setPriorityStat(
+            cardHeartEl,
+            titleHeartEl,
+            subtitleHeartEl,
+            noteHeartEl,
+            "warning",
+            "Heart Rate",
+            "No Reading",
+            "No reliable pulse reading yet. Keep face and forehead visible to camera."
+          );
+        } else if (effectiveBpm <= 45) {
+          setPriorityStat(
+            cardHeartEl,
+            titleHeartEl,
+            subtitleHeartEl,
+            noteHeartEl,
+            "danger",
+            "Heart Rate",
+            "Too Low",
+            `${fmt(effectiveBpm, 1)} BPM — Normal adult resting range is 60-100 BPM.`
+          );
+        } else if (effectiveBpm >= 130) {
+          setPriorityStat(
+            cardHeartEl,
+            titleHeartEl,
+            subtitleHeartEl,
+            noteHeartEl,
+            "danger",
+            "Heart Rate",
+            "Too High",
+            `${fmt(effectiveBpm, 1)} BPM — This is above the normal resting range (60-100 BPM).`
+          );
+        } else if (effectiveBpm < 60 || effectiveBpm > 100) {
+          setPriorityStat(
+            cardHeartEl,
+            titleHeartEl,
+            subtitleHeartEl,
+            noteHeartEl,
+            "warning",
+            "Heart Rate",
+            "Borderline",
+            `${fmt(effectiveBpm, 1)} BPM — Monitor closely for symptoms or trend changes.`
+          );
+        } else {
+          setPriorityStat(
+            cardHeartEl,
+            titleHeartEl,
+            subtitleHeartEl,
+            noteHeartEl,
+            "normal",
+            "Heart Rate",
+            "Normal",
+            `${fmt(effectiveBpm, 1)} BPM — Within normal resting range.`
+          );
+        }
+
+        if (distressScore >= 0.75 || (state.status || "").toLowerCase() === "critical") {
+          setPriorityStat(
+            cardDistressEl,
+            titleDistressEl,
+            subtitleDistressEl,
+            noteDistressEl,
+            "danger",
+            "Overall Distress",
+            "Critical",
+            `Distress score ${fmt(distressScore, 2)} — Immediate caregiver attention is recommended.`
+          );
+        } else if (distressScore >= 0.45 || (state.status || "").toLowerCase() === "warning") {
+          setPriorityStat(
+            cardDistressEl,
+            titleDistressEl,
+            subtitleDistressEl,
+            noteDistressEl,
+            "warning",
+            "Overall Distress",
+            "Elevated",
+            `Distress score ${fmt(distressScore, 2)} — Watch patient and verify symptoms.`
+          );
+        } else {
+          setPriorityStat(
+            cardDistressEl,
+            titleDistressEl,
+            subtitleDistressEl,
+            noteDistressEl,
+            "normal",
+            "Overall Distress",
+            "Normal",
+            `Distress score ${fmt(distressScore, 2)} — No critical pattern detected.`
+          );
+        }
+
+        if (faintType && faintType !== "none" && faintType !== "--") {
+          setPriorityStat(
+            cardFaintEl,
+            titleFaintEl,
+            subtitleFaintEl,
+            noteFaintEl,
+            "danger",
+            "Fainting Risk",
+            "High",
+            `${faintTypeLabel(faintType)} observed — Check person immediately.`
+          );
+        } else if (faintRisk >= 0.7) {
+          setPriorityStat(
+            cardFaintEl,
+            titleFaintEl,
+            subtitleFaintEl,
+            noteFaintEl,
+            "danger",
+            "Fainting Risk",
+            "High",
+            `Risk score ${fmt(faintRisk, 2)} — Strong signs of fainting behavior.`
+          );
+        } else if (faintRisk >= 0.35) {
+          setPriorityStat(
+            cardFaintEl,
+            titleFaintEl,
+            subtitleFaintEl,
+            noteFaintEl,
+            "warning",
+            "Fainting Risk",
+            "Moderate",
+            `Risk score ${fmt(faintRisk, 2)} — Keep monitoring posture and responsiveness.`
+          );
+        } else {
+          setPriorityStat(
+            cardFaintEl,
+            titleFaintEl,
+            subtitleFaintEl,
+            noteFaintEl,
+            "normal",
+            "Fainting Risk",
+            "Low",
+            `Risk score ${fmt(faintRisk, 2)} — No strong fainting pattern right now.`
+          );
+        }
+
+        if (fallRisk >= 0.7) {
+          setPriorityStat(
+            cardFallEl,
+            titleFallEl,
+            subtitleFallEl,
+            noteFallEl,
+            "danger",
+            "Fall Risk",
+            "High",
+            `Risk score ${fmt(fallRisk, 2)} — Body movement suggests a possible fall.`
+          );
+        } else if (fallRisk >= 0.35 || Boolean(state.slanting)) {
+          setPriorityStat(
+            cardFallEl,
+            titleFallEl,
+            subtitleFallEl,
+            noteFallEl,
+            "warning",
+            "Fall Risk",
+            "Moderate",
+            `Risk score ${fmt(fallRisk, 2)} — Instability or slanting detected.`
+          );
+        } else {
+          setPriorityStat(
+            cardFallEl,
+            titleFallEl,
+            subtitleFallEl,
+            noteFallEl,
+            "normal",
+            "Fall Risk",
+            "Low",
+            `Risk score ${fmt(fallRisk, 2)} — Stable posture and movement.`
+          );
+        }
+
+        const postureText = (state.posture || "unknown").toString();
+        if (postureText.toLowerCase() === "fallen" || fallRisk >= 0.7) {
+          setStatCard(
+            statPostureCardEl,
+            statPostureValueEl,
+            statPostureNoteEl,
+            "danger",
+            postureText,
+            "Body position suggests a fall or unsafe state."
+          );
+        } else if (postureText.toLowerCase() === "lying" || Boolean(state.slanting)) {
+          setStatCard(
+            statPostureCardEl,
+            statPostureValueEl,
+            statPostureNoteEl,
+            "warning",
+            postureText,
+            "Unusual body angle detected. Please check person."
+          );
+        } else {
+          setStatCard(
+            statPostureCardEl,
+            statPostureValueEl,
+            statPostureNoteEl,
+            "normal",
+            postureText,
+            "Body position looks stable right now."
+          );
+        }
+
+        if (!state.person_present) {
+          setStatCard(
+            statPresenceCardEl,
+            statPresenceValueEl,
+            statPresenceNoteEl,
+            "warning",
+            "No",
+            "Person is not fully visible. Reposition camera or person."
+          );
+        } else {
+          setStatCard(
+            statPresenceCardEl,
+            statPresenceValueEl,
+            statPresenceNoteEl,
+            "normal",
+            "Yes",
+            "Person is clearly visible in camera view."
+          );
+        }
+
+        if (faintType && faintType !== "none" && faintType !== "--") {
+          setStatCard(
+            statPatternCardEl,
+            statPatternValueEl,
+            statPatternNoteEl,
+            "danger",
+            faintTypeLabel(faintType),
+            "Fainting movement pattern detected. Check immediately."
+          );
+        } else if ((slump ?? 0.0) >= 0.45 || faintRisk >= 0.35) {
+          setStatCard(
+            statPatternCardEl,
+            statPatternValueEl,
+            statPatternNoteEl,
+            "warning",
+            "Possible",
+            "Some signs of fainting pattern. Continue close monitoring."
+          );
+        } else {
+          setStatCard(
+            statPatternCardEl,
+            statPatternValueEl,
+            statPatternNoteEl,
+            "normal",
+            "None",
+            "No fainting movement pattern is currently detected."
+          );
+        }
+
+        const statusText = (state.status || "normal").toString().toLowerCase();
+        const faintTypeDetected = faintType && faintType !== "none" && faintType !== "--";
+        const heartProblemDetected = Boolean(state.heart_issue);
+        const faintingDetected = faintTypeDetected || faintRisk >= 0.5;
+        priorityPanelEl.classList.toggle("alert-red", faintingDetected || heartProblemDetected);
+        if (statusText === "critical") {
+          setStatCard(
+            statStatusCardEl,
+            statStatusValueEl,
+            statStatusNoteEl,
+            "danger",
+            "Critical",
+            heartProblemDetected
+              ? `Heart issue active: ${issueLabel(state.heart_issue)}. Immediate attention recommended.`
+              : "Immediate attention is recommended based on combined alerts."
+          );
+        } else if (statusText === "warning") {
+          setStatCard(
+            statStatusCardEl,
+            statStatusValueEl,
+            statStatusNoteEl,
+            "warning",
+            "Warning",
+            "Some risk signals are elevated. Keep monitoring closely."
+          );
+        } else {
+          setStatCard(
+            statStatusCardEl,
+            statStatusValueEl,
+            statStatusNoteEl,
+            "normal",
+            "Normal",
+            "Combined monitoring signals are stable."
+          );
+        }
+
         sourceHintEl.textContent = `Source: ${state.source || "--"} | Last update: ${state.timestamp || "--"}`;
         currentHeartIssue = state.heart_issue || null;
-        const manualBpm = numericOrNull(state.manual_bpm);
         if (manualBpm !== null) {
           currentManualBpm = manualBpm;
           bpmSliderEl.value = String(Math.round(manualBpm));
-          bpmSliderValueEl.textContent = `${Math.round(manualBpm)} BPM`;
+          updateBpmSliderVisuals(manualBpm);
         }
         updateIssueButtons();
 
@@ -832,11 +1640,29 @@
 
       bpmSliderEl.addEventListener("input", () => {
         const value = Number(bpmSliderEl.value);
-        bpmSliderValueEl.textContent = `${Math.round(value)} BPM`;
+        updateBpmSliderVisuals(value);
         if (manualBpmTimer) clearTimeout(manualBpmTimer);
         manualBpmTimer = setTimeout(() => setManualBpm(value), 120);
       });
       testAlertBtnEl.addEventListener("click", sendTestAlert);
+      alertFamilyActionBtnEl.addEventListener("click", () =>
+        sendTestAlert("Family alert sent to Telegram caregiver chat.")
+      );
+      callEmergencyBtnEl.addEventListener("click", () => {
+        feedHintEl.textContent = "Call emergency services now: dial 911.";
+      });
+      markSafeBtnEl.addEventListener("click", () => {
+        alarmSilencedUntil = Date.now() + 30 * 1000;
+        dangerAlertEl.classList.remove("show");
+        criticalBannerEl.classList.remove("show");
+        feedHintEl.textContent = "Marked as safe (false alarm). Alarm hidden briefly.";
+      });
+      silenceAlarmBtnEl.addEventListener("click", () => {
+        alarmSilencedUntil = Date.now() + 5 * 60 * 1000;
+        dangerAlertEl.classList.remove("show");
+        criticalBannerEl.classList.remove("show");
+        feedHintEl.textContent = "Alarm silenced for 5 minutes.";
+      });
 
       function enableSnapshotFallback() {
         if (framePollTimer) return;
@@ -847,6 +1673,7 @@
       }
 
       updateConnectionBadge();
+      updateBpmSliderVisuals(Number(bpmSliderEl.value));
       ensureSession();
       stateFromApi();
       eventsFromApi();
