@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 import logging
+import os
+from pathlib import Path
 import threading
 import time
 from typing import Any
@@ -17,7 +19,8 @@ from monitor.session_store import SessionStore
 logger = logging.getLogger(__name__)
 
 RED_EVENT_TYPES = {"fall", "cardiac_distress"}
-FAINT_REPEAT_INTERVAL_SEC = 5.0
+FAINT_REPEAT_INTERVAL_SEC = 10.0
+POLL_LOCK_FILE = ".telegram_poll.lock"
 
 
 def _utc_now_iso() -> str:
@@ -53,6 +56,8 @@ class TelegramPairingBot:
         self._last_faint_sent_by_pair: dict[str, float] = {}
         self._blocked_until_ts = 0.0
         self._last_conflict_log_ts = 0.0
+        self._owns_poll_lock = False
+        self._poll_lock_path = Path(__file__).resolve().parent.parent / POLL_LOCK_FILE
 
         if self._enabled:
             logger.info("Telegram pairing bot enabled (polling)")
@@ -63,6 +68,12 @@ class TelegramPairingBot:
         if not self._enabled:
             return
         if self._thread and self._thread.is_alive():
+            return
+        if not self._acquire_poll_lock():
+            logger.warning(
+                "Telegram polling not started: another local instance already holds %s",
+                self._poll_lock_path,
+            )
             return
         # Polling cannot run while webhook mode is active.
         self._delete_webhook()
@@ -75,9 +86,14 @@ class TelegramPairingBot:
         if self._thread:
             self._thread.join(timeout=2.0)
             self._thread = None
+        self._release_poll_lock()
 
     def status(self) -> dict[str, Any]:
-        return {"enabled": self._enabled, "polling": bool(self._thread and self._thread.is_alive())}
+        return {
+            "enabled": self._enabled,
+            "polling": bool(self._thread and self._thread.is_alive()),
+            "poll_lock": self._owns_poll_lock,
+        }
 
     def handle_state_update(
         self,
@@ -146,8 +162,6 @@ class TelegramPairingBot:
 
             faint_kind = (faint_type or faint_kind_from_event or "").strip()
             faint_detected = bool(faint_kind)
-            was_faint = self._session_faint_active.get(session_id, False)
-            transition_to_faint = faint_detected and (not was_faint)
             self._session_faint_active[session_id] = faint_detected
             if not faint_detected:
                 return
@@ -162,16 +176,7 @@ class TelegramPairingBot:
             for chat_id in chat_ids:
                 pair_key = f"{session_id}:{chat_id}"
                 last_faint_sent = self._last_faint_sent_by_pair.get(pair_key)
-                if (
-                    not transition_to_faint
-                    and last_faint_sent is not None
-                    and now_ts - last_faint_sent < FAINT_REPEAT_INTERVAL_SEC
-                ):
-                    continue
-                if (
-                    last_faint_sent is not None
-                    and now_ts - last_faint_sent < 0.4
-                ):
+                if last_faint_sent is not None and now_ts - last_faint_sent < FAINT_REPEAT_INTERVAL_SEC:
                     continue
                 payload = AlertPayload(
                     session_id=session_id,
@@ -382,9 +387,12 @@ class TelegramPairingBot:
 
     def _handle_polling_conflict(self, details: str) -> None:
         now = time.time()
-        if now - self._last_conflict_log_ts >= 30.0:
+        if now - self._last_conflict_log_ts >= 300.0:
             self._last_conflict_log_ts = now
-            logger.warning("Telegram polling conflict (409): %s", details)
+            logger.warning(
+                "Telegram polling conflict (409). Another bot instance with this token is polling. Details: %s",
+                details,
+            )
 
         details_lower = details.lower()
         if "webhook" in details_lower:
@@ -414,4 +422,65 @@ class TelegramPairingBot:
             return False
         except Exception:
             logger.exception("Telegram deleteWebhook failed")
+            return False
+
+    def _acquire_poll_lock(self) -> bool:
+        # Ensure only one local process polls Telegram for this project.
+        for _ in range(2):
+            try:
+                fd = os.open(str(self._poll_lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                    handle.write(str(os.getpid()))
+                self._owns_poll_lock = True
+                return True
+            except FileExistsError:
+                lock_pid = self._read_lock_pid()
+                if lock_pid is None or not self._pid_alive(lock_pid):
+                    try:
+                        self._poll_lock_path.unlink()
+                    except FileNotFoundError:
+                        pass
+                    except Exception:
+                        logger.exception("Failed to remove stale Telegram poll lock")
+                        return False
+                    continue
+                return False
+            except Exception:
+                logger.exception("Failed to acquire Telegram poll lock")
+                return False
+        return False
+
+    def _release_poll_lock(self) -> None:
+        if not self._owns_poll_lock:
+            return
+        try:
+            lock_pid = self._read_lock_pid()
+            if lock_pid is None or lock_pid == os.getpid():
+                self._poll_lock_path.unlink(missing_ok=True)
+        except Exception:
+            logger.exception("Failed to release Telegram poll lock")
+        finally:
+            self._owns_poll_lock = False
+
+    def _read_lock_pid(self) -> int | None:
+        try:
+            raw = self._poll_lock_path.read_text(encoding="utf-8").strip()
+            if not raw:
+                return None
+            return int(raw)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _pid_alive(pid: int) -> bool:
+        if pid <= 0:
+            return False
+        try:
+            os.kill(pid, 0)
+            return True
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        except OSError:
             return False

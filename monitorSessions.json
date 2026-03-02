@@ -42,40 +42,40 @@
     "0864bbe7-86f3-4b58-8512-a86dea3a659b": {
       "pairingCode": "303544",
       "createdAt": "2026-03-02T14:16:02Z",
-      "lastSeen": "2026-03-02T15:00:23Z",
+      "lastSeen": "2026-03-02T15:25:03Z",
       "latestVitals": {
-        "bpm": 75.0,
+        "bpm": 63.0,
         "hr_confidence": 0.99,
-        "fps": 8.5,
-        "timestamp": "2026-03-02T15:00:22Z"
+        "fps": 16.3,
+        "timestamp": "2026-03-02T15:25:02Z"
       },
       "latestRisk": {
         "status": "normal",
         "distress_score": 0.0,
         "fall_risk": 0.0,
         "faint_risk": 0.0,
-        "posture": "standing",
-        "timestamp": "2026-03-02T15:00:22Z"
+        "posture": "unknown",
+        "timestamp": "2026-03-02T15:25:02Z"
       },
       "latestState": {
-        "timestamp": "2026-03-02T15:00:22Z",
+        "timestamp": "2026-03-02T15:25:02Z",
         "source": "camera:0:hr_only",
-        "bpm": 75.0,
+        "bpm": 63.0,
         "hr_confidence": 0.99,
-        "posture": "standing",
+        "posture": "unknown",
         "torso_angle": null,
-        "person_present": true,
-        "person_source": "tracker",
+        "person_present": false,
+        "person_source": "none",
         "slanting": false,
         "fall_risk": 0.0,
         "faint_risk": 0.0,
         "faint_type": null,
         "heart_issue": null,
-        "manual_bpm": 75.0,
+        "manual_bpm": 63.0,
         "seated_slump_score": 0.0,
         "distress_score": 0.0,
         "status": "normal",
-        "fps": 8.5
+        "fps": 16.3
       }
     },
     "da940bda-effd-4183-9fa2-c38145b318a1": {

@@ -138,7 +138,8 @@ Telegram send logic:
 - Bot commands: `/start`, `/pair <code>`, `/status`, `/unpair`.
 - Sends for RED session events (`fall` or `cardiac_distress`) to caregivers paired to that session only.
 - Sends on RED transition (`previous != RED`, `current == RED`), or while RED persists after cooldown.
-- While `faint_type` remains detected, Telegram also sends repeating faint alerts (about once per second).
+- While `faint_type` remains detected, Telegram sends faint alerts at most once every 10 seconds.
+- Run only one backend instance per Telegram bot token. This app enforces a local poll lock (`.telegram_poll.lock`) to avoid `409 Conflict`.
 - Cooldown is per (`sessionId`, `chatId`) via `TELEGRAM_ALERT_COOLDOWN_SEC`.
 - Local demo persistence files:
   - `monitorSessions.json` (sessions + pairingCodeIndex)
