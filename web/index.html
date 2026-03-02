@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
     <title>Dove Spotted Monitor</title>
     <style>
       :root {
@@ -33,7 +39,7 @@
       }
 
       .wrap {
-        max-width: 1080px;
+        max-width: 1240px;
         margin: 0 auto;
         padding: 24px 18px 36px;
       }
@@ -47,8 +53,11 @@
 
       .title {
         margin: 0;
-        font-size: clamp(1.6rem, 3.3vw, 2.4rem);
+        font-size: clamp(2rem, 4.2vw, 3.1rem);
         letter-spacing: 0.01em;
+        font-family: "Montserrat", "Segoe UI", "Trebuchet MS", sans-serif;
+        font-weight: 800;
+        color: #ff7a00;
       }
 
       .subtitle {
@@ -90,7 +99,6 @@
       }
 
       .camera-panel {
-        margin-top: 16px;
         background: var(--panel);
         border: 1px solid var(--border);
         border-radius: 14px;
@@ -98,11 +106,56 @@
       }
 
       .controls-panel {
-        margin-top: 16px;
         background: var(--panel);
         border: 1px solid var(--border);
         border-radius: 14px;
         padding: 12px;
+      }
+
+      .live-layout {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: 1.85fr 1fr;
+        gap: 12px;
+        align-items: start;
+      }
+
+      .priority-panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px;
+      }
+
+      .priority-title {
+        margin: 0 0 10px;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      .priority-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .priority-card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-left: 5px solid #ff7a00;
+        border-radius: 12px;
+        padding: 12px;
+      }
+
+      .priority-label {
+        margin: 0;
+        font-size: 0.83rem;
+        color: var(--muted);
+      }
+
+      .priority-value {
+        margin: 8px 0 0;
+        font-size: 1.55rem;
+        font-weight: 800;
       }
 
       .controls-title {
@@ -175,15 +228,33 @@
         margin-top: 14px;
         background: #b1142f;
         color: #fff;
-        border-radius: 11px;
-        padding: 12px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
+        border: 2px solid #7e0018;
+        border-radius: 14px;
+        padding: 18px 20px;
+        font-weight: 800;
+        font-size: 1.3rem;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        text-align: center;
+        box-shadow: 0 8px 18px rgba(177, 20, 47, 0.25);
         display: none;
       }
 
       .danger-alert.show {
         display: block;
+        animation: danger-pulse 1.2s ease-in-out infinite;
+      }
+
+      @keyframes danger-pulse {
+        0%,
+        100% {
+          transform: scale(1);
+          box-shadow: 0 8px 18px rgba(177, 20, 47, 0.25);
+        }
+        50% {
+          transform: scale(1.01);
+          box-shadow: 0 10px 26px rgba(177, 20, 47, 0.38);
+        }
       }
 
       .camera-title {
@@ -192,14 +263,43 @@
         color: var(--muted);
       }
 
+      .camera-feed-wrap {
+        position: relative;
+      }
+
       .camera-feed {
         width: 100%;
         display: block;
         border-radius: 10px;
         border: 1px solid var(--border);
         background: #1d2330;
-        aspect-ratio: 4 / 3;
+        aspect-ratio: 16 / 10;
         object-fit: cover;
+      }
+
+      .faint-overlay {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        z-index: 2;
+        display: none;
+        background: rgba(177, 20, 47, 0.95);
+        color: #fff;
+        border: 2px solid #7e0018;
+        border-radius: 10px;
+        padding: 10px 12px;
+        text-align: center;
+        font-size: clamp(0.95rem, 1.5vw, 1.15rem);
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        box-shadow: 0 8px 18px rgba(177, 20, 47, 0.35);
+      }
+
+      .faint-overlay.show {
+        display: block;
+        animation: danger-pulse 1s ease-in-out infinite;
       }
 
       .card {
@@ -290,6 +390,12 @@
       .conn-polling {
         color: var(--warn);
       }
+
+      @media (max-width: 860px) {
+        .live-layout {
+          grid-template-columns: 1fr;
+        }
+      }
     </style>
   </head>
   <body>
@@ -303,10 +409,6 @@
       </div>
 
       <section class="grid">
-        <article class="card">
-          <p class="label">Heart Rate (BPM)</p>
-          <p class="value" id="bpm">--</p>
-        </article>
         <article class="card">
           <p class="label">HR Confidence</p>
           <p class="value" id="hrConfidence">--</p>
@@ -328,14 +430,6 @@
           <p class="value" id="slanting">--</p>
         </article>
         <article class="card">
-          <p class="label">Fall Risk</p>
-          <p class="value" id="fallRisk">--</p>
-        </article>
-        <article class="card">
-          <p class="label">Faint Risk</p>
-          <p class="value" id="faintRisk">--</p>
-        </article>
-        <article class="card">
           <p class="label">Seated Slump Score</p>
           <p class="value" id="seatedSlumpScore">--</p>
         </article>
@@ -348,20 +442,43 @@
           <p class="value" id="heartIssue">--</p>
         </article>
         <article class="card">
-          <p class="label">Distress Score</p>
-          <p class="value" id="distressScore">--</p>
-        </article>
-        <article class="card">
           <p class="label">Frame Rate</p>
           <p class="value" id="fps">--</p>
         </article>
       </section>
 
-      <section class="camera-panel">
-        <p class="camera-title">Live Camera Feed (person + face + forehead ROI)</p>
-        <img id="cameraFeed" class="camera-feed" src="/video_feed" alt="Live camera feed" />
-        <p class="feed-hint" id="feedHint">Waiting for preview frames...</p>
-      </section>
+      <div class="live-layout">
+        <section class="camera-panel">
+          <p class="camera-title">Live Camera Feed (person + face + forehead ROI)</p>
+          <div class="camera-feed-wrap">
+            <div id="faintOverlay" class="faint-overlay">Fainting Detected</div>
+            <img id="cameraFeed" class="camera-feed" src="/video_feed" alt="Live camera feed" />
+          </div>
+          <p class="feed-hint" id="feedHint">Waiting for preview frames...</p>
+        </section>
+
+        <section class="priority-panel">
+          <p class="priority-title">Priority Vitals</p>
+          <div class="priority-grid">
+            <article class="priority-card">
+              <p class="priority-label">Heart Rate (BPM)</p>
+              <p class="priority-value" id="bpm">--</p>
+            </article>
+            <article class="priority-card">
+              <p class="priority-label">Faint Risk</p>
+              <p class="priority-value" id="faintRisk">--</p>
+            </article>
+            <article class="priority-card">
+              <p class="priority-label">Fall Risk</p>
+              <p class="priority-value" id="fallRisk">--</p>
+            </article>
+            <article class="priority-card">
+              <p class="priority-label">Distress Score</p>
+              <p class="priority-value" id="distressScore">--</p>
+            </article>
+          </div>
+        </section>
+      </div>
 
       <section class="controls-panel">
         <p class="controls-title">Heart Issue Simulation Controls</p>
@@ -382,7 +499,15 @@
         <div class="slider-wrap">
           <p class="slider-label">Manual Heartbeat (0-200 BPM)</p>
           <div class="slider-row">
-            <input class="bpm-slider" type="range" id="bpmSlider" min="0" max="200" step="1" value="0" />
+            <input
+              class="bpm-slider"
+              type="range"
+              id="bpmSlider"
+              min="0"
+              max="200"
+              step="1"
+              value="0"
+            />
             <span class="slider-value" id="bpmSliderValue">0 BPM</span>
           </div>
         </div>
@@ -420,6 +545,7 @@
       const cameraFeedEl = document.getElementById("cameraFeed");
       const feedHintEl = document.getElementById("feedHint");
       const dangerAlertEl = document.getElementById("dangerAlert");
+      const faintOverlayEl = document.getElementById("faintOverlay");
       const bpmSliderEl = document.getElementById("bpmSlider");
       const bpmSliderValueEl = document.getElementById("bpmSliderValue");
       const issueButtons = Array.from(document.querySelectorAll(".issue-btn"));
@@ -528,6 +654,15 @@
         dangerAlertEl.textContent = `DANGER: Person is in danger (${reasons.join(" + ")}).`;
       }
 
+      function updateFaintOverlay(state) {
+        const faintRisk = numericOrNull(state.faint_risk);
+        const faintType = (state.faint_type || "").toString().toLowerCase().trim();
+        const faintTypeDetected = Boolean(faintType) && faintType !== "none" && faintType !== "--";
+        const faintRiskDetected = faintRisk !== null && faintRisk >= 0.5;
+        const show = faintTypeDetected || faintRiskDetected;
+        faintOverlayEl.classList.toggle("show", show);
+      }
+
       function updateConnectionBadge() {
         if (wsConnected) {
           connStatusEl.textContent = "Connection: live websocket";
@@ -566,6 +701,7 @@
         statusEl.textContent = status;
         statusEl.className = `status-pill status-${status}`;
         updateDangerAlert(state);
+        updateFaintOverlay(state);
       }
 
       function renderEvents(events) {
