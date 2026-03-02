@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import logging
 from pathlib import Path
@@ -14,10 +14,29 @@ import uuid
 from monitor.schemas import DistressEvent, MonitorState
 
 logger = logging.getLogger(__name__)
+PAIRING_CODE_TTL_SEC = 24 * 60 * 60
 
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _utc_dt_to_iso(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _parse_utc_iso(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(text).astimezone(timezone.utc)
+    except ValueError:
+        return None
 
 
 class SessionStore:
@@ -38,30 +57,30 @@ class SessionStore:
     def create_or_resume_session(self, session_id: str | None = None) -> dict[str, str]:
         with self._lock:
             sid = (session_id or "").strip()
-            now_iso = _utc_now_iso()
+            now_dt = datetime.now(timezone.utc)
+            now_iso = _utc_dt_to_iso(now_dt)
 
             if sid and sid in self._sessions:
                 self._sessions[sid]["lastSeen"] = now_iso
             else:
                 sid = str(uuid.uuid4())
-                pairing_code = self._generate_pairing_code_locked()
                 self._sessions[sid] = {
-                    "pairingCode": pairing_code,
                     "createdAt": now_iso,
                     "lastSeen": now_iso,
                     "latestVitals": None,
                     "latestRisk": None,
                     "latestState": None,
                 }
-                self._pairing_code_index[pairing_code] = sid
                 self._events_by_session[sid] = deque(maxlen=80)
-                self._save_sessions_locked()
+
+            self._ensure_pairing_code_valid_locked(sid, now_dt=now_dt)
 
             self._active_session_id = sid
             self._save_sessions_locked()
             return {
                 "sessionId": sid,
                 "pairingCode": str(self._sessions[sid]["pairingCode"]),
+                "pairingCodeExpiresAt": str(self._sessions[sid]["pairingCodeExpiresAt"]),
             }
 
     def set_active_session(self, session_id: str) -> None:
@@ -112,10 +131,17 @@ class SessionStore:
             session = self._sessions.get(session_id)
             if session is None:
                 return None
+            changed = self._ensure_pairing_code_valid_locked(session_id)
+            if changed:
+                session = self._sessions.get(session_id)
+                if session is None:
+                    return None
+                self._save_sessions_locked()
             events = list(self._events_by_session.get(session_id, deque()))[:30]
             return {
                 "sessionId": session_id,
                 "pairingCode": session.get("pairingCode"),
+                "pairingCodeExpiresAt": session.get("pairingCodeExpiresAt"),
                 "createdAt": session.get("createdAt"),
                 "lastSeen": session.get("lastSeen"),
                 "latestVitals": session.get("latestVitals"),
@@ -126,7 +152,28 @@ class SessionStore:
 
     def get_session_by_code(self, pairing_code: str) -> str | None:
         with self._lock:
-            return self._pairing_code_index.get(pairing_code)
+            code = str(pairing_code or "").strip()
+            if not code:
+                return None
+
+            sid = self._pairing_code_index.get(code)
+            if sid is None:
+                return None
+
+            session = self._sessions.get(sid)
+            if session is None:
+                self._pairing_code_index.pop(code, None)
+                self._save_sessions_locked()
+                return None
+
+            changed = self._ensure_pairing_code_valid_locked(sid)
+            session = self._sessions.get(sid)
+            current_code = str(session.get("pairingCode") if session is not None else "")
+            if changed:
+                self._save_sessions_locked()
+            if current_code != code:
+                return None
+            return sid
 
     def pair_chat_to_session(self, chat_id: int, session_id: str) -> bool:
         with self._lock:
@@ -176,6 +223,10 @@ class SessionStore:
             session = self._sessions.get(session_id)
             if session is None:
                 return None
+            changed = self._ensure_pairing_code_valid_locked(session_id)
+            if changed:
+                session = self._sessions.get(session_id)
+                self._save_sessions_locked()
             pairing_code = session.get("pairingCode")
             return str(pairing_code) if pairing_code is not None else None
 
@@ -190,13 +241,19 @@ class SessionStore:
         if self._sessions_path.exists():
             try:
                 raw = json.loads(self._sessions_path.read_text(encoding="utf-8"))
-                self._sessions = dict(raw.get("sessions", {}))
-                self._pairing_code_index = {
-                    str(k): str(v) for k, v in dict(raw.get("pairingCodeIndex", {})).items()
-                }
+                raw_sessions = dict(raw.get("sessions", {}))
+                self._sessions = {}
+                for sid, session in raw_sessions.items():
+                    if isinstance(session, dict):
+                        self._sessions[str(sid)] = dict(session)
+                self._pairing_code_index = {}
                 self._active_session_id = raw.get("activeSessionId")
+                changed = False
                 for sid in self._sessions:
                     self._events_by_session[sid] = deque(maxlen=80)
+                    changed = self._ensure_pairing_code_valid_locked(sid) or changed
+                if changed:
+                    self._save_sessions_locked()
             except Exception:
                 self._sessions = {}
                 self._pairing_code_index = {}
@@ -216,6 +273,69 @@ class SessionStore:
                 self._by_session = {}
                 self._by_chat = {}
                 logger.exception("Failed loading Telegram subscriptions from %s", self._subscriptions_path)
+
+    def _ensure_pairing_code_valid_locked(
+        self,
+        session_id: str,
+        now_dt: datetime | None = None,
+    ) -> bool:
+        session = self._sessions.get(session_id)
+        if session is None:
+            return False
+
+        changed = False
+        now = now_dt or datetime.now(timezone.utc)
+
+        created_dt = _parse_utc_iso(session.get("createdAt"))
+        if created_dt is None:
+            created_dt = now
+            created_iso = _utc_dt_to_iso(created_dt)
+            if session.get("createdAt") != created_iso:
+                session["createdAt"] = created_iso
+                changed = True
+
+        pairing_code = str(session.get("pairingCode") or "").strip()
+        issued_dt = _parse_utc_iso(session.get("pairingCodeIssuedAt"))
+        if issued_dt is None:
+            issued_dt = created_dt
+            issued_iso = _utc_dt_to_iso(issued_dt)
+            if session.get("pairingCodeIssuedAt") != issued_iso:
+                session["pairingCodeIssuedAt"] = issued_iso
+                changed = True
+
+        expires_dt = _parse_utc_iso(session.get("pairingCodeExpiresAt"))
+        if expires_dt is None:
+            expires_dt = issued_dt + timedelta(seconds=PAIRING_CODE_TTL_SEC)
+            expires_iso = _utc_dt_to_iso(expires_dt)
+            if session.get("pairingCodeExpiresAt") != expires_iso:
+                session["pairingCodeExpiresAt"] = expires_iso
+                changed = True
+
+        mapped_sid = self._pairing_code_index.get(pairing_code) if pairing_code else None
+        needs_rotation = (
+            not pairing_code
+            or expires_dt <= now
+            or (mapped_sid is not None and mapped_sid != session_id)
+        )
+
+        if needs_rotation:
+            if pairing_code and self._pairing_code_index.get(pairing_code) == session_id:
+                self._pairing_code_index.pop(pairing_code, None)
+
+            new_code = self._generate_pairing_code_locked()
+            new_issued_dt = now
+            new_expires_dt = new_issued_dt + timedelta(seconds=PAIRING_CODE_TTL_SEC)
+            session["pairingCode"] = new_code
+            session["pairingCodeIssuedAt"] = _utc_dt_to_iso(new_issued_dt)
+            session["pairingCodeExpiresAt"] = _utc_dt_to_iso(new_expires_dt)
+            self._pairing_code_index[new_code] = session_id
+            return True
+
+        if self._pairing_code_index.get(pairing_code) != session_id:
+            self._pairing_code_index[pairing_code] = session_id
+            changed = True
+
+        return changed
 
     def _save_sessions_locked(self) -> None:
         payload = {

@@ -229,6 +229,7 @@ async def create_session(payload: SessionCreateRequest | None = None) -> dict[st
     return {
         "sessionId": session_id,
         "pairingCode": session_data["pairingCode"],
+        "pairingCodeExpiresAt": session_data.get("pairingCodeExpiresAt"),
         "caregiverUrl": caregiver_url,
     }
 

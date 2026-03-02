@@ -37,12 +37,14 @@
         "distress_score": 0.0,
         "status": "normal",
         "fps": 20.3
-      }
+      },
+      "pairingCodeIssuedAt": "2026-03-02T13:53:33Z",
+      "pairingCodeExpiresAt": "2026-03-03T13:53:33Z"
     },
     "0864bbe7-86f3-4b58-8512-a86dea3a659b": {
       "pairingCode": "303544",
       "createdAt": "2026-03-02T14:16:02Z",
-      "lastSeen": "2026-03-02T15:25:03Z",
+      "lastSeen": "2026-03-02T15:33:34Z",
       "latestVitals": {
         "bpm": 63.0,
         "hr_confidence": 0.99,
@@ -76,7 +78,9 @@
         "distress_score": 0.0,
         "status": "normal",
         "fps": 16.3
-      }
+      },
+      "pairingCodeIssuedAt": "2026-03-02T14:16:02Z",
+      "pairingCodeExpiresAt": "2026-03-03T14:16:02Z"
     },
     "da940bda-effd-4183-9fa2-c38145b318a1": {
       "pairingCode": "279308",
@@ -84,7 +88,9 @@
       "lastSeen": "2026-03-02T14:52:54Z",
       "latestVitals": null,
       "latestRisk": null,
-      "latestState": null
+      "latestState": null,
+      "pairingCodeIssuedAt": "2026-03-02T14:52:54Z",
+      "pairingCodeExpiresAt": "2026-03-03T14:52:54Z"
     }
   },
   "pairingCodeIndex": {

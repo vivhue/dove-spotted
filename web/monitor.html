@@ -411,6 +411,7 @@
       <section class="card" style="margin-top: 12px">
         <p class="label">Pairing Code (share with caregiver: /pair CODE)</p>
         <p class="value" id="pairingCode" style="font-size: 2rem; letter-spacing: 0.12em">------</p>
+        <p class="subtitle" id="pairingExpiry">Code valid until: --</p>
         <p class="subtitle" id="caregiverLink">Caregiver link: --</p>
       </section>
 
@@ -559,6 +560,7 @@
       const bpmSliderValueEl = document.getElementById("bpmSliderValue");
       const testAlertBtnEl = document.getElementById("btnTestAlert");
       const pairingCodeEl = document.getElementById("pairingCode");
+      const pairingExpiryEl = document.getElementById("pairingExpiry");
       const caregiverLinkEl = document.getElementById("caregiverLink");
       const sessionMetaEl = document.getElementById("sessionMeta");
       const issueButtons = Array.from(document.querySelectorAll(".issue-btn[data-issue]"));
@@ -595,6 +597,13 @@
         const n = Number(v);
         return Number.isFinite(n) ? n : null;
       };
+
+      function formatDateTime(value) {
+        if (!value) return "--";
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return String(value);
+        return d.toLocaleString();
+      }
 
       function issueLabel(issue) {
         if (issue === "vt") return "Ventricular Tachycardia (VT)";
@@ -669,6 +678,7 @@
             window.localStorage.setItem("monitorSessionId", currentSessionId);
           }
           pairingCodeEl.textContent = payload.pairingCode || "------";
+          pairingExpiryEl.textContent = `Code valid until: ${formatDateTime(payload.pairingCodeExpiresAt)}`;
           caregiverLinkEl.textContent = `Caregiver link: ${payload.caregiverUrl || "--"}`;
           sessionMetaEl.textContent = `Session: ${currentSessionId || "--"}`;
         } catch (_err) {}
