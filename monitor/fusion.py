@@ -29,6 +29,8 @@ class SignalFusion:
         hr: HRMeasurement,
         pose: PoseMeasurement,
         fps: float,
+        heart_issue: str | None = None,
+        manual_bpm: float | None = None,
     ) -> tuple[MonitorState, DistressEvent | None]:
         cardiac_risk = self._cardiac_risk(hr)
         if cardiac_risk >= 0.8:
@@ -64,15 +66,8 @@ class SignalFusion:
             else max(0.0, timestamp - self._faint_candidate_start_ts)
         )
 
-        seated_candidate = (
-            pose.faint_type == "seated_slump"
-            or (pose.posture == "sitting" and pose.faint_risk >= (0.50 if self.settings.faint_high_sensitivity else 0.58))
-        )
         confirm_streak_threshold = self._faint_confirm_streak_threshold
         confirm_min_sec = self._faint_confirm_min_sec
-        if seated_candidate:
-            confirm_streak_threshold = max(2, confirm_streak_threshold - 2)
-            confirm_min_sec = max(0.40, confirm_min_sec - 0.40)
 
         faint_confirmed = (
             self._faint_confirm_streak >= confirm_streak_threshold
@@ -100,9 +95,12 @@ class SignalFusion:
             torso_angle=pose.torso_angle,
             person_present=pose.person_present,
             person_source=pose.person_source,
+            slanting=pose.slanting,
             fall_risk=round(fall_risk, 3),
             faint_risk=round(faint_risk, 3),
             faint_type=pose.faint_type,
+            heart_issue=heart_issue,
+            manual_bpm=manual_bpm,
             seated_slump_score=round(pose.seated_slump_score, 3),
             distress_score=round(distress_score, 3),
             status=status,
@@ -110,22 +108,42 @@ class SignalFusion:
         )
 
         event: DistressEvent | None = None
+        if heart_issue:
+            heart_issue_event_type = f"heart_issue_{heart_issue}"
+            if self._event_allowed(heart_issue_event_type, timestamp):
+                issue_descriptions = {
+                    "vt": "Ventricular Tachycardia pattern simulated",
+                    "vf": "Ventricular Fibrillation pattern simulated",
+                    "asystole": "Asystole pattern simulated",
+                }
+                message = issue_descriptions.get(heart_issue, "Critical heart issue pattern simulated.")
+                event = DistressEvent.create(
+                    event_type=heart_issue_event_type,
+                    severity="critical",
+                    message=f"{message} Immediate medical attention recommended.",
+                    bpm=hr.bpm,
+                )
+                self._last_event_by_type[heart_issue_event_type] = timestamp
+
         # High-sensitivity fallback: if person is present and faint risk is high,
         # synthesize a faint type even when upstream classifier is uncertain.
         synth_threshold = self._faint_synth_threshold
         if pose.posture == "sitting":
             synth_threshold = max(0.30, synth_threshold - 0.06)
 
-        if person_confirmed and pose.faint_type is None and pose.faint_risk >= synth_threshold:
+        if (
+            person_confirmed
+            and pose.faint_type is None
+            and pose.faint_risk >= synth_threshold
+            and pose.posture != "sitting"
+        ):
             if pose.fall_risk >= 0.40 or pose.posture == "lying":
                 pose.faint_type = "ground_fall"
-            elif pose.posture == "sitting":
-                pose.faint_type = "seated_slump"
             else:
                 pose.faint_type = "standing_faint"
             pose.faint_detected = True
 
-        if pose.faint_detected and pose.faint_type and person_confirmed and faint_confirmed:
+        if event is None and pose.faint_detected and pose.faint_type and person_confirmed and faint_confirmed:
             faint_event_type = f"faint_{pose.faint_type}"
             if self._event_allowed(faint_event_type, timestamp):
                 message = (
@@ -139,7 +157,7 @@ class SignalFusion:
                     bpm=hr.bpm,
                 )
                 self._last_event_by_type[faint_event_type] = timestamp
-        elif pose.fall_detected and self._event_allowed("fall", timestamp):
+        elif event is None and pose.fall_detected and self._event_allowed("fall", timestamp):
             message = f"Possible fall detected (posture={pose.posture}, risk={pose.fall_risk:.2f})."
             event = DistressEvent.create(
                 event_type="fall",
@@ -148,7 +166,7 @@ class SignalFusion:
                 bpm=hr.bpm,
             )
             self._last_event_by_type["fall"] = timestamp
-        elif (
+        elif event is None and (
             cardiac_risk >= 0.8
             and self._abnormal_hr_streak >= self._hr_event_streak_threshold
             and self._event_allowed("cardiac_distress", timestamp)

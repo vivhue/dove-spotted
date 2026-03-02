@@ -39,6 +39,11 @@ class MonitoringEngine:
         self._on_preview = on_preview
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._heart_issue_lock = threading.Lock()
+        self._heart_issue: str | None = None
+        self._manual_bpm_lock = threading.Lock()
+        self._manual_bpm: float | None = None
+        self._issue_rng = random.Random()
 
         self._fusion = SignalFusion(settings)
         self._alerts = AlertManager(settings)
@@ -56,7 +61,6 @@ class MonitoringEngine:
             tuple[float, float, float, float, float, float, float]
         ] = deque()
         self._head_rel_history: deque[tuple[float, float, float, float]] = deque()
-        self._fainted_banner_until_ts = 0.0
         self._last_emit_ts = 0.0
         self._last_preview_ts = 0.0
         self._preview_interval_sec = 0.15
@@ -67,6 +71,30 @@ class MonitoringEngine:
             )
         else:
             self._face_detector = None
+
+    def set_heart_issue(self, issue: str | None) -> None:
+        normalized = issue.lower() if issue is not None else None
+        if normalized not in {None, "vt", "vf", "asystole"}:
+            raise ValueError(f"Unsupported heart issue mode: {issue}")
+        with self._heart_issue_lock:
+            self._heart_issue = normalized
+
+    def get_heart_issue(self) -> str | None:
+        with self._heart_issue_lock:
+            return self._heart_issue
+
+    def set_manual_bpm(self, bpm: float | None) -> None:
+        normalized: float | None = None
+        if bpm is not None:
+            normalized = float(bpm)
+            if normalized < 0.0 or normalized > 200.0:
+                raise ValueError(f"Manual BPM out of range: {bpm}")
+        with self._manual_bpm_lock:
+            self._manual_bpm = normalized
+
+    def get_manual_bpm(self) -> float | None:
+        with self._manual_bpm_lock:
+            return self._manual_bpm
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -148,9 +176,23 @@ class MonitoringEngine:
                 fps = 1.0 / dt
 
                 hr = self._estimate_hr(frame, now_ts)
+                heart_issue = self.get_heart_issue()
+                manual_bpm = self.get_manual_bpm()
+                if heart_issue is not None:
+                    hr = self._apply_heart_issue(hr, heart_issue)
+                else:
+                    hr = self._apply_manual_bpm(hr, manual_bpm)
                 pose = self._estimate_pose(frame, now_ts)
                 pose = self._track_body_box(frame, pose, now_ts)
-                state, event = self._fusion.update(now_ts, source, hr, pose, fps)
+                state, event = self._fusion.update(
+                    now_ts,
+                    source,
+                    hr,
+                    pose,
+                    fps,
+                    heart_issue=heart_issue,
+                    manual_bpm=manual_bpm,
+                )
                 self._emit_preview(frame, pose, source, state.status, event)
 
                 if self._should_emit(now_ts, event):
@@ -218,6 +260,25 @@ class MonitoringEngine:
         except Exception:
             logger.exception("Pose estimation failed")
             return PoseMeasurement(posture="unknown", fall_risk=0.0, fall_detected=False, torso_angle=None)
+
+    def _apply_heart_issue(self, hr: HRMeasurement, heart_issue: str | None) -> HRMeasurement:
+        if heart_issue is None:
+            return hr
+        if heart_issue == "vt":
+            bpm = self._issue_rng.uniform(160.0, 220.0)
+            return HRMeasurement(bpm=round(bpm, 1), confidence=max(0.92, hr.confidence))
+        if heart_issue == "vf":
+            bpm = self._issue_rng.uniform(280.0, 360.0)
+            return HRMeasurement(bpm=round(bpm, 1), confidence=max(0.95, hr.confidence))
+        if heart_issue == "asystole":
+            return HRMeasurement(bpm=0.0, confidence=max(0.98, hr.confidence))
+        return hr
+
+    @staticmethod
+    def _apply_manual_bpm(hr: HRMeasurement, manual_bpm: float | None) -> HRMeasurement:
+        if manual_bpm is None:
+            return hr
+        return HRMeasurement(bpm=round(float(manual_bpm), 1), confidence=max(0.99, hr.confidence))
 
     def _track_body_box(self, frame_bgr, pose: PoseMeasurement, timestamp: float) -> PoseMeasurement:
         if self._body_tracker is None:
@@ -376,6 +437,7 @@ class MonitoringEngine:
             )
             # Reduce seated false positives from generic box jitter and prefer slump-specific cues.
             risk = max(min(risk, 0.44), min(1.0, combined_slump))
+        pose.slanting = seated_like and combined_slump >= 0.55
         pose.seated_slump_score = round(combined_slump, 3)
         risk = min(1.0, risk)
 
@@ -396,7 +458,7 @@ class MonitoringEngine:
         generic_motion_detected = (
             risk >= detect_risk_gate and (self._box_drop_streak >= streak_gate or total_drop > detect_drop_gate)
         )
-        if seated_like and not seated_motion_confirmed:
+        if seated_like:
             generic_motion_detected = False
 
         if generic_motion_detected:
@@ -404,20 +466,8 @@ class MonitoringEngine:
             if pose.faint_type is None:
                 if pose.posture == "lying" or (center_y > 0.70 and body_compression > 0.18):
                     pose.faint_type = "ground_fall"
-                elif seated_motion_confirmed:
-                    pose.faint_type = "seated_slump"
                 else:
                     pose.faint_type = "standing_faint"
-
-        if seated_like and (head_slump_detected or box_slump_detected):
-            pose.faint_detected = True
-            pose.faint_type = "seated_slump"
-            pose.faint_risk = max(
-                pose.faint_risk,
-                round(max(head_slump_score, box_slump_score), 3),
-            )
-            # Seated slump is upper-body dominant, so keep fall risk lower.
-            pose.fall_risk = min(pose.fall_risk, 0.55)
 
     def _seated_upper_body_slump_score(
         self,
@@ -581,9 +631,9 @@ class MonitoringEngine:
                 posture = "sitting"
                 torso_angle = 52.0
                 fall_risk = 0.36
-                faint_risk = 0.84
-                faint_detected = True
-                faint_type = "seated_slump"
+                faint_risk = 0.24
+                faint_detected = False
+                faint_type = None
             if 40.0 <= (elapsed % 90.0) <= 55.0:
                 bpm = 138.0 + rng.uniform(-3.0, 3.0)
                 confidence = 0.78
@@ -597,6 +647,12 @@ class MonitoringEngine:
                 faint_type = "ground_fall"
 
             hr = HRMeasurement(bpm=round(float(bpm), 1), confidence=round(float(confidence), 3))
+            heart_issue = self.get_heart_issue()
+            manual_bpm = self.get_manual_bpm()
+            if heart_issue is not None:
+                hr = self._apply_heart_issue(hr, heart_issue)
+            else:
+                hr = self._apply_manual_bpm(hr, manual_bpm)
             pose = PoseMeasurement(
                 posture=posture,
                 fall_risk=round(float(fall_risk), 3),
@@ -604,13 +660,22 @@ class MonitoringEngine:
                 torso_angle=round(float(torso_angle), 1),
                 person_present=True,
                 person_source="sim",
+                slanting=(torso_angle >= 40.0 and posture != "lying"),
                 faint_risk=round(float(faint_risk), 3),
                 faint_detected=faint_detected,
                 faint_type=faint_type,
-                seated_slump_score=round(float(faint_risk if faint_type == "seated_slump" else 0.0), 3),
+                seated_slump_score=round(0.72 if (posture == "sitting" and torso_angle >= 45.0) else 0.0, 3),
             )
 
-            state, event = self._fusion.update(now_ts, source, hr, pose, fps)
+            state, event = self._fusion.update(
+                now_ts,
+                source,
+                hr,
+                pose,
+                fps,
+                heart_issue=heart_issue,
+                manual_bpm=manual_bpm,
+            )
             self._emit_simulation_preview(source, state.status)
             if self._should_emit(now_ts, event):
                 self._on_update(state, event)
@@ -703,50 +768,6 @@ class MonitoringEngine:
                 2,
                 cv2.LINE_AA,
             )
-            faint_confirmed = (
-                (event is not None and event.event_type.startswith("faint_"))
-                or (status == "critical" and pose.faint_detected and pose.faint_risk >= 0.60)
-            )
-            if faint_confirmed and pose.faint_type:
-                self._fainted_banner_until_ts = max(self._fainted_banner_until_ts, now_ts + 3.0)
-                cv2.putText(
-                    preview,
-                    f"FAINT: {pose.faint_type}",
-                    (10, 58),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.62,
-                    (32, 105, 247),
-                    2,
-                    cv2.LINE_AA,
-                )
-
-            if now_ts < self._fainted_banner_until_ts:
-                h_img, w_img = preview.shape[:2]
-                box_h = max(90, int(h_img * 0.18))
-                y1 = max(40, (h_img // 2) - (box_h // 2))
-                y2 = min(h_img - 10, y1 + box_h)
-
-                overlay = preview.copy()
-                cv2.rectangle(overlay, (20, y1), (w_img - 20, y2), (20, 20, 220), -1)
-                cv2.addWeighted(overlay, 0.42, preview, 0.58, 0, preview)
-
-                text = "FAINTED"
-                scale = max(1.2, min(2.6, w_img / 420.0))
-                thickness = max(2, int(scale * 2))
-                (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scale, thickness)
-                tx = max(26, (w_img - tw) // 2)
-                ty = y1 + ((y2 - y1 + th) // 2) - 6
-                cv2.putText(
-                    preview,
-                    text,
-                    (tx, ty),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    scale,
-                    (245, 245, 245),
-                    thickness,
-                    cv2.LINE_AA,
-                )
-
             ok, encoded = cv2.imencode(".jpg", preview, [int(cv2.IMWRITE_JPEG_QUALITY), 82])
             if ok:
                 self._on_preview(encoded.tobytes())

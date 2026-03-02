@@ -145,6 +145,7 @@ class PoseEstimator:
             person_box=person_box,
             person_present=person_present,
             person_source=person_source,
+            slanting=(torso_angle >= 40.0 and posture != "lying"),
             faint_risk=round(faint_risk, 3),
             faint_detected=faint_detected,
             faint_type=faint_type,
@@ -229,7 +230,6 @@ class PoseEstimator:
         scores = {
             "standing_faint": standing_score,
             "ground_fall": ground_score,
-            "seated_slump": slump_score,
         }
         faint_risk = max(scores.values())
 
@@ -242,9 +242,6 @@ class PoseEstimator:
             detected_type = "standing_faint"
         elif ground_score >= 0.62 and (fall_detected or posture == "lying" or hip_drop > 0.12):
             detected_type = "ground_fall"
-        elif slump_score >= 0.58 and posture != "lying" and sitting_ratio >= 0.30:
-            detected_type = "seated_slump"
-
         return faint_risk, detected_type is not None, detected_type, slump_score
 
     @staticmethod

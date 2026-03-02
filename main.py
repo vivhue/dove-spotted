@@ -8,8 +8,9 @@ import threading
 import time
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response, StreamingResponse
+from pydantic import BaseModel
 
 from monitor.config import load_settings
 from monitor.engine import MonitoringEngine
@@ -57,6 +58,14 @@ loop_ref: asyncio.AbstractEventLoop | None = None
 
 app = FastAPI(title="Dove Spotted Monitor", version="0.1.0")
 engine: MonitoringEngine | None = None
+
+
+class HeartIssueRequest(BaseModel):
+    issue: str
+
+
+class ManualBpmRequest(BaseModel):
+    bpm: float
 
 
 def _on_engine_update(state: MonitorState, event: DistressEvent | None) -> None:
@@ -156,6 +165,39 @@ async def get_state() -> dict[str, Any]:
 async def get_events() -> list[dict[str, Any]]:
     with state_lock:
         return [event.to_dict() for event in list(recent_events)]
+
+
+@app.post("/api/heart_issue")
+async def set_heart_issue(payload: HeartIssueRequest) -> dict[str, Any]:
+    if engine is None:
+        raise HTTPException(status_code=503, detail="Monitoring engine unavailable")
+
+    issue_raw = payload.issue.strip().lower()
+    issue_map: dict[str, str | None] = {
+        "vt": "vt",
+        "vf": "vf",
+        "asystole": "asystole",
+        "none": None,
+        "stop": None,
+    }
+    if issue_raw not in issue_map:
+        raise HTTPException(status_code=400, detail="Unsupported heart issue mode")
+
+    engine.set_heart_issue(issue_map[issue_raw])
+    return {"heart_issue": engine.get_heart_issue()}
+
+
+@app.post("/api/manual_bpm")
+async def set_manual_bpm(payload: ManualBpmRequest) -> dict[str, Any]:
+    if engine is None:
+        raise HTTPException(status_code=503, detail="Monitoring engine unavailable")
+
+    bpm = float(payload.bpm)
+    if bpm < 0.0 or bpm > 200.0:
+        raise HTTPException(status_code=400, detail="Manual BPM must be within 0 to 200")
+
+    engine.set_manual_bpm(bpm)
+    return {"manual_bpm": engine.get_manual_bpm()}
 
 
 @app.websocket("/ws/live")

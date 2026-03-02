@@ -97,6 +97,95 @@
         padding: 12px;
       }
 
+      .controls-panel {
+        margin-top: 16px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px;
+      }
+
+      .controls-title {
+        margin: 0 0 10px;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      .control-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .issue-btn {
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--ink);
+        border-radius: 10px;
+        padding: 9px 12px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .issue-btn:hover {
+        border-color: rgba(11, 110, 128, 0.45);
+      }
+
+      .issue-btn.active {
+        background: #ffedd1;
+        border-color: #d18627;
+      }
+
+      .issue-btn.stop {
+        background: #ffe8eb;
+        border-color: rgba(177, 20, 47, 0.35);
+      }
+
+      .slider-wrap {
+        margin-top: 12px;
+        border-top: 1px solid var(--border);
+        padding-top: 10px;
+      }
+
+      .slider-label {
+        margin: 0 0 8px;
+        font-size: 0.86rem;
+        color: var(--muted);
+      }
+
+      .slider-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .bpm-slider {
+        width: 100%;
+      }
+
+      .slider-value {
+        min-width: 64px;
+        text-align: right;
+        font-weight: 700;
+      }
+
+      .danger-alert {
+        margin-top: 14px;
+        background: #b1142f;
+        color: #fff;
+        border-radius: 11px;
+        padding: 12px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        display: none;
+      }
+
+      .danger-alert.show {
+        display: block;
+      }
+
       .camera-title {
         margin: 0 0 8px;
         font-size: 0.9rem;
@@ -235,6 +324,10 @@
           <p class="value" id="personSource">--</p>
         </article>
         <article class="card">
+          <p class="label">Slanting</p>
+          <p class="value" id="slanting">--</p>
+        </article>
+        <article class="card">
           <p class="label">Fall Risk</p>
           <p class="value" id="fallRisk">--</p>
         </article>
@@ -249,6 +342,10 @@
         <article class="card">
           <p class="label">Faint Pattern</p>
           <p class="value" id="faintType">--</p>
+        </article>
+        <article class="card">
+          <p class="label">Heart Issue</p>
+          <p class="value" id="heartIssue">--</p>
         </article>
         <article class="card">
           <p class="label">Distress Score</p>
@@ -266,6 +363,33 @@
         <p class="feed-hint" id="feedHint">Waiting for preview frames...</p>
       </section>
 
+      <section class="controls-panel">
+        <p class="controls-title">Heart Issue Simulation Controls</p>
+        <div class="control-row">
+          <button class="issue-btn" data-issue="vt" id="btnVT">
+            Ventricular Tachycardia (VT)
+          </button>
+          <button class="issue-btn" data-issue="vf" id="btnVF">
+            Ventricular Fibrillation (VF)
+          </button>
+          <button class="issue-btn" data-issue="asystole" id="btnAsystole">
+            Asystole
+          </button>
+          <button class="issue-btn stop" data-issue="none" id="btnStopIssue">
+            Stop Heart Issue
+          </button>
+        </div>
+        <div class="slider-wrap">
+          <p class="slider-label">Manual Heartbeat (0-200 BPM)</p>
+          <div class="slider-row">
+            <input class="bpm-slider" type="range" id="bpmSlider" min="0" max="200" step="1" value="0" />
+            <span class="slider-value" id="bpmSliderValue">0 BPM</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="danger-alert" id="dangerAlert">DANGER: Person is in danger.</section>
+
       <section class="events">
         <h2>Recent Events</h2>
         <ul id="eventList" class="event-list"></ul>
@@ -282,10 +406,12 @@
       const postureEl = document.getElementById("posture");
       const personPresentEl = document.getElementById("personPresent");
       const personSourceEl = document.getElementById("personSource");
+      const slantingEl = document.getElementById("slanting");
       const fallRiskEl = document.getElementById("fallRisk");
       const faintRiskEl = document.getElementById("faintRisk");
       const seatedSlumpScoreEl = document.getElementById("seatedSlumpScore");
       const faintTypeEl = document.getElementById("faintType");
+      const heartIssueEl = document.getElementById("heartIssue");
       const distressScoreEl = document.getElementById("distressScore");
       const fpsEl = document.getElementById("fps");
       const sourceHintEl = document.getElementById("sourceHint");
@@ -293,9 +419,16 @@
       const eventListEl = document.getElementById("eventList");
       const cameraFeedEl = document.getElementById("cameraFeed");
       const feedHintEl = document.getElementById("feedHint");
+      const dangerAlertEl = document.getElementById("dangerAlert");
+      const bpmSliderEl = document.getElementById("bpmSlider");
+      const bpmSliderValueEl = document.getElementById("bpmSliderValue");
+      const issueButtons = Array.from(document.querySelectorAll(".issue-btn"));
       let recentEvents = [];
       let wsConnected = false;
       let framePollTimer = null;
+      let currentHeartIssue = null;
+      let currentManualBpm = 0;
+      let manualBpmTimer = null;
 
       const stateFromApi = async () => {
         try {
@@ -318,6 +451,83 @@
       const fmt = (v, digits = 1) =>
         v === null || v === undefined || Number.isNaN(Number(v)) ? "--" : Number(v).toFixed(digits);
 
+      const numericOrNull = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+      };
+
+      function issueLabel(issue) {
+        if (issue === "vt") return "Ventricular Tachycardia (VT)";
+        if (issue === "vf") return "Ventricular Fibrillation (VF)";
+        if (issue === "asystole") return "Asystole";
+        return "--";
+      }
+
+      async function setHeartIssue(issue) {
+        try {
+          const res = await fetch("/api/heart_issue", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ issue }),
+          });
+          if (!res.ok) return;
+          const payload = await res.json();
+          currentHeartIssue = payload.heart_issue || null;
+          updateIssueButtons();
+        } catch (_err) {}
+      }
+
+      async function setManualBpm(bpm) {
+        try {
+          const clamped = Math.max(0, Math.min(200, Number(bpm)));
+          const res = await fetch("/api/manual_bpm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ bpm: clamped }),
+          });
+          if (!res.ok) return;
+          const payload = await res.json();
+          currentManualBpm = Number(payload.manual_bpm ?? clamped);
+          bpmSliderEl.value = String(Math.round(currentManualBpm));
+          bpmSliderValueEl.textContent = `${Math.round(currentManualBpm)} BPM`;
+        } catch (_err) {}
+      }
+
+      function updateIssueButtons() {
+        issueButtons.forEach((btn) => {
+          const issue = btn.dataset.issue;
+          const btnIssue = issue === "none" ? null : issue;
+          btn.classList.toggle("active", btnIssue === currentHeartIssue);
+        });
+      }
+
+      function updateDangerAlert(state) {
+        const reasons = [];
+        const bpm = numericOrNull(state.bpm);
+        const hrConfidence = numericOrNull(state.hr_confidence);
+        const highRiskBpmDetected =
+          bpm !== null && hrConfidence !== null && hrConfidence >= 0.35 && (bpm <= 45 || bpm >= 130);
+        const lowBpmAndSlanting = bpm !== null && bpm < 60 && Boolean(state.slanting);
+
+        if (state.heart_issue) {
+          reasons.push(`detected heart issue (${issueLabel(state.heart_issue)})`);
+        } else if (highRiskBpmDetected) {
+          reasons.push(`detected heart issue (critical BPM ${fmt(bpm, 1)})`);
+        }
+        if (lowBpmAndSlanting) {
+          reasons.push(`low BPM (${fmt(bpm, 1)}) while person is slanting`);
+        }
+
+        if (reasons.length === 0) {
+          dangerAlertEl.classList.remove("show");
+          dangerAlertEl.textContent = "DANGER: Person is in danger.";
+          return;
+        }
+
+        dangerAlertEl.classList.add("show");
+        dangerAlertEl.textContent = `DANGER: Person is in danger (${reasons.join(" + ")}).`;
+      }
+
       function updateConnectionBadge() {
         if (wsConnected) {
           connStatusEl.textContent = "Connection: live websocket";
@@ -334,17 +544,28 @@
         postureEl.textContent = state.posture || "--";
         personPresentEl.textContent = state.person_present ? "yes" : "no";
         personSourceEl.textContent = state.person_source || "--";
+        slantingEl.textContent = state.slanting ? "yes" : "no";
         fallRiskEl.textContent = fmt(state.fall_risk, 2);
         faintRiskEl.textContent = fmt(state.faint_risk, 2);
         seatedSlumpScoreEl.textContent = fmt(state.seated_slump_score, 2);
         faintTypeEl.textContent = state.faint_type || "--";
+        heartIssueEl.textContent = issueLabel(state.heart_issue);
         distressScoreEl.textContent = fmt(state.distress_score, 2);
         fpsEl.textContent = fmt(state.fps, 1);
         sourceHintEl.textContent = `Source: ${state.source || "--"} | Last update: ${state.timestamp || "--"}`;
+        currentHeartIssue = state.heart_issue || null;
+        const manualBpm = numericOrNull(state.manual_bpm);
+        if (manualBpm !== null) {
+          currentManualBpm = manualBpm;
+          bpmSliderEl.value = String(Math.round(manualBpm));
+          bpmSliderValueEl.textContent = `${Math.round(manualBpm)} BPM`;
+        }
+        updateIssueButtons();
 
         const status = (state.status || "initializing").toLowerCase();
         statusEl.textContent = status;
         statusEl.className = `status-pill status-${status}`;
+        updateDangerAlert(state);
       }
 
       function renderEvents(events) {
@@ -409,6 +630,17 @@
         feedHintEl.textContent = "Stream fallback active (snapshot mode).";
         enableSnapshotFallback();
       };
+
+      issueButtons.forEach((btn) => {
+        btn.addEventListener("click", () => setHeartIssue(btn.dataset.issue));
+      });
+
+      bpmSliderEl.addEventListener("input", () => {
+        const value = Number(bpmSliderEl.value);
+        bpmSliderValueEl.textContent = `${Math.round(value)} BPM`;
+        if (manualBpmTimer) clearTimeout(manualBpmTimer);
+        manualBpmTimer = setTimeout(() => setManualBpm(value), 120);
+      });
 
       function enableSnapshotFallback() {
         if (framePollTimer) return;

@@ -25,6 +25,7 @@ class PoseMeasurement:
     person_box: tuple[int, int, int, int] | None = None
     person_present: bool = False
     person_source: str | None = None
+    slanting: bool = False
     faint_risk: float = 0.0
     faint_detected: bool = False
     faint_type: str | None = None
@@ -41,9 +42,12 @@ class MonitorState:
     torso_angle: float | None
     person_present: bool
     person_source: str | None
+    slanting: bool
     fall_risk: float
     faint_risk: float
     faint_type: str | None
+    heart_issue: str | None
+    manual_bpm: float | None
     seated_slump_score: float
     distress_score: float
     status: str
@@ -63,9 +67,12 @@ class MonitorState:
             torso_angle=None,
             person_present=False,
             person_source=None,
+            slanting=False,
             fall_risk=0.0,
             faint_risk=0.0,
             faint_type=None,
+            heart_issue=None,
+            manual_bpm=None,
             seated_slump_score=0.0,
             distress_score=0.0,
             status="initializing",
