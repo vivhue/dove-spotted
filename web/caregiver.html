@@ -129,7 +129,9 @@
       async function fetchStatus() {
         if (!sessionId) return;
         try {
-          const res = await fetch(`/api/session/${encodeURIComponent(sessionId)}/status`);
+          const res = await fetch(`/api/session/${encodeURIComponent(sessionId)}/status?t=${Date.now()}`, {
+            cache: "no-store",
+          });
           if (!res.ok) return;
           const data = await res.json();
           const state = data.latestState || {};

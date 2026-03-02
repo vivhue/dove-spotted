@@ -68,43 +68,18 @@ class SignalFusion:
 
         confirm_streak_threshold = self._faint_confirm_streak_threshold
         confirm_min_sec = self._faint_confirm_min_sec
+        seated_candidate = (
+            pose.faint_type == "seated_slump"
+            or pose.posture == "sitting"
+            or pose.seated_slump_score >= 0.52
+        )
+        if seated_candidate:
+            confirm_streak_threshold = max(2, confirm_streak_threshold - 2)
+            confirm_min_sec = max(0.35, confirm_min_sec - 0.40)
 
         faint_confirmed = (
             self._faint_confirm_streak >= confirm_streak_threshold
             and confirm_age_sec >= confirm_min_sec
-        )
-
-        effective_faint_risk = faint_risk if (person_confirmed and faint_confirmed) else min(faint_risk, 0.44)
-        distress_score = max(cardiac_risk, fall_risk, effective_faint_risk)
-
-        status = "normal"
-        if distress_score >= 0.75:
-            status = "critical"
-        elif distress_score >= 0.45:
-            status = "warning"
-
-        if pose.fall_detected or (pose.faint_detected and person_confirmed and faint_confirmed):
-            status = "critical"
-
-        state = MonitorState(
-            timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(timestamp)),
-            source=source,
-            bpm=hr.bpm,
-            hr_confidence=hr.confidence,
-            posture=pose.posture,
-            torso_angle=pose.torso_angle,
-            person_present=pose.person_present,
-            person_source=pose.person_source,
-            slanting=pose.slanting,
-            fall_risk=round(fall_risk, 3),
-            faint_risk=round(faint_risk, 3),
-            faint_type=pose.faint_type,
-            heart_issue=heart_issue,
-            manual_bpm=manual_bpm,
-            seated_slump_score=round(pose.seated_slump_score, 3),
-            distress_score=round(distress_score, 3),
-            status=status,
-            fps=round(fps, 1),
         )
 
         event: DistressEvent | None = None
@@ -129,16 +104,19 @@ class SignalFusion:
         # synthesize a faint type even when upstream classifier is uncertain.
         synth_threshold = self._faint_synth_threshold
         if pose.posture == "sitting":
-            synth_threshold = max(0.30, synth_threshold - 0.06)
+            synth_threshold = max(0.30, synth_threshold - 0.08)
+        elif pose.seated_slump_score >= 0.50:
+            synth_threshold = max(0.34, synth_threshold - 0.05)
 
         if (
             person_confirmed
             and pose.faint_type is None
             and pose.faint_risk >= synth_threshold
-            and pose.posture != "sitting"
         ):
             if pose.fall_risk >= 0.40 or pose.posture == "lying":
                 pose.faint_type = "ground_fall"
+            elif pose.posture == "sitting" or pose.seated_slump_score >= 0.50:
+                pose.faint_type = "seated_slump"
             else:
                 pose.faint_type = "standing_faint"
             pose.faint_detected = True
@@ -181,6 +159,40 @@ class SignalFusion:
             )
             self._last_event_by_type["cardiac_distress"] = timestamp
             self._abnormal_hr_streak = 0
+
+        faint_risk = pose.faint_risk
+        effective_faint_risk = faint_risk if (person_confirmed and faint_confirmed) else min(faint_risk, 0.44)
+        distress_score = max(cardiac_risk, fall_risk, effective_faint_risk)
+
+        status = "normal"
+        if distress_score >= 0.75:
+            status = "critical"
+        elif distress_score >= 0.45:
+            status = "warning"
+
+        if pose.fall_detected or (pose.faint_detected and person_confirmed and faint_confirmed):
+            status = "critical"
+
+        state = MonitorState(
+            timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(timestamp)),
+            source=source,
+            bpm=hr.bpm,
+            hr_confidence=hr.confidence,
+            posture=pose.posture,
+            torso_angle=pose.torso_angle,
+            person_present=pose.person_present,
+            person_source=pose.person_source,
+            slanting=pose.slanting,
+            fall_risk=round(fall_risk, 3),
+            faint_risk=round(faint_risk, 3),
+            faint_type=pose.faint_type,
+            heart_issue=heart_issue,
+            manual_bpm=manual_bpm,
+            seated_slump_score=round(pose.seated_slump_score, 3),
+            distress_score=round(distress_score, 3),
+            status=status,
+            fps=round(fps, 1),
+        )
 
         return state, event
 

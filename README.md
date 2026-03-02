@@ -27,6 +27,21 @@ Webcam-only monitoring service that:
 ## Quick Start
 
 1. Create and activate a virtual environment.
+
+Windows (PowerShell):
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+macOS/Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
 2. Install dependencies:
 
 ```bash
@@ -35,9 +50,16 @@ pip install -r requirements.txt
 
 3. Set environment variables (optional defaults shown):
 
+Windows (PowerShell):
+
+```powershell
+Copy-Item .env.example .env
+```
+
+macOS/Linux:
+
 ```bash
 cp .env.example .env
-# PowerShell: Copy-Item .env.example .env
 ```
 
 Then export values in your shell (or set them in your process manager):
@@ -60,6 +82,12 @@ APP_PUBLIC_URL=http://127.0.0.1:8000
 
 ```bash
 uvicorn main:app --reload
+```
+
+If `uvicorn` is not found:
+
+```bash
+python -m uvicorn main:app --reload
 ```
 
 5. Open monitor:
@@ -110,6 +138,7 @@ Telegram send logic:
 - Bot commands: `/start`, `/pair <code>`, `/status`, `/unpair`.
 - Sends for RED session events (`fall` or `cardiac_distress`) to caregivers paired to that session only.
 - Sends on RED transition (`previous != RED`, `current == RED`), or while RED persists after cooldown.
+- While `faint_type` remains detected, Telegram also sends repeating faint alerts (about once per second).
 - Cooldown is per (`sessionId`, `chatId`) via `TELEGRAM_ALERT_COOLDOWN_SEC`.
 - Local demo persistence files:
   - `monitorSessions.json` (sessions + pairingCodeIndex)
@@ -157,4 +186,5 @@ When fainting is detected, the live feed shows a large `FAINTED` banner for visi
 - Try `CAMERA_INDEX=0`, then `1`, then `2` if your webcam is not detected.
 - Close other apps that may lock the camera (Zoom, Teams, browser tabs).
 - On Windows, grant camera access to desktop apps in system privacy settings.
+- On macOS, grant camera access to Terminal/iTerm/Python in Privacy & Security > Camera.
 - The dashboard now includes a live preview panel fed from `/video_feed`.

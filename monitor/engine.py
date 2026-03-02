@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 import logging
+import platform
 import random
 import threading
 import time
@@ -449,9 +450,9 @@ class MonitoringEngine:
             or head_slump_detected
             or (body_compression > 0.13 and top_drop > 0.045 and seat_anchor)
             or (
-                combined_slump >= (0.56 if high_sens else 0.58)
+                combined_slump >= (0.52 if high_sens else 0.55)
                 and seat_anchor
-                and (top_drop > 0.04 or lateral_shift > 0.07)
+                and (top_drop > 0.035 or lateral_shift > 0.06)
             )
         )
 
@@ -468,6 +469,16 @@ class MonitoringEngine:
                     pose.faint_type = "ground_fall"
                 else:
                     pose.faint_type = "standing_faint"
+
+        if seated_motion_confirmed:
+            pose.faint_detected = True
+            pose.faint_type = "seated_slump"
+            pose.faint_risk = max(
+                pose.faint_risk,
+                round(max(combined_slump, box_slump_score, head_slump_score), 3),
+            )
+            # Seated slump is upper-body dominant, so keep fall risk capped.
+            pose.fall_risk = min(pose.fall_risk, 0.55)
 
     def _seated_upper_body_slump_score(
         self,
@@ -842,37 +853,72 @@ class MonitoringEngine:
         candidates: list[int] = []
         if preferred >= 0:
             candidates.append(preferred)
-        candidates.extend(index for index in range(5) if index != preferred)
+        candidates.extend(index for index in range(8) if index != preferred)
 
         for index in candidates:
             try:
-                cap = self._try_open_index(index)
+                opened = self._try_open_index(index)
             except Exception:
                 logger.exception("Camera probe failed for index %s", index)
-                cap = None
-            if cap is not None:
-                logger.info("Using webcam index %s", index)
+                opened = None
+            if opened is not None:
+                cap, backend_name = opened
+                logger.info("Using webcam index %s (backend=%s)", index, backend_name)
                 return cap, index
         return None
 
     @staticmethod
-    def _try_open_index(index: int):
+    def _try_open_index(index: int) -> tuple["cv2.VideoCapture", str] | None:
         if cv2 is None:
             return None
 
-        backends = [None]
-        if hasattr(cv2, "CAP_DSHOW"):
-            backends.append(cv2.CAP_DSHOW)
+        backends = MonitoringEngine._camera_backends()
 
-        for backend in backends:
+        for backend, backend_name in backends:
             try:
                 cap = cv2.VideoCapture(index) if backend is None else cv2.VideoCapture(index, backend)
                 if cap.isOpened():
-                    return cap
+                    if hasattr(cv2, "CAP_PROP_BUFFERSIZE"):
+                        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                    return cap, backend_name
                 cap.release()
             except Exception:
-                logger.exception("cv2.VideoCapture failed for index=%s backend=%s", index, backend)
+                logger.debug(
+                    "cv2.VideoCapture probe failed for index=%s backend=%s",
+                    index,
+                    backend_name,
+                    exc_info=True,
+                )
         return None
+
+    @staticmethod
+    def _camera_backends() -> list[tuple[int | None, str]]:
+        # Prefer platform-native camera backends for better cross-platform reliability.
+        backends: list[tuple[int | None, str]] = [(None, "default")]
+        if cv2 is None:
+            return backends
+
+        def append_backend(attr_name: str, label: str) -> None:
+            value = getattr(cv2, attr_name, None)
+            if value is None:
+                return
+            if any(existing == value for existing, _ in backends):
+                return
+            backends.append((int(value), label))
+
+        system_name = platform.system().lower()
+        if system_name == "windows":
+            append_backend("CAP_DSHOW", "dshow")
+            append_backend("CAP_MSMF", "msmf")
+        elif system_name == "darwin":
+            append_backend("CAP_AVFOUNDATION", "avfoundation")
+            append_backend("CAP_QT", "qt")
+        else:
+            append_backend("CAP_V4L2", "v4l2")
+            append_backend("CAP_GSTREAMER", "gstreamer")
+
+        append_backend("CAP_ANY", "any")
+        return backends
 
     @staticmethod
     def _format_engine_error_reason(exc: Exception) -> str:

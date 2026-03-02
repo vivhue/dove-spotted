@@ -111,6 +111,8 @@ def _on_engine_update(state: MonitorState, event: DistressEvent | None) -> None:
                 hr=state.bpm,
                 confidence=state.hr_confidence,
                 timestamp=state.timestamp,
+                faint_type=state.faint_type,
+                faint_risk=state.faint_risk,
             )
         except Exception:
             logger.exception("Telegram alert handling failed")
@@ -232,19 +234,32 @@ async def create_session(payload: SessionCreateRequest | None = None) -> dict[st
 
 
 @app.get("/api/session/{session_id}/status")
-async def session_status(session_id: str) -> dict[str, Any]:
+async def session_status(session_id: str, response: Response) -> dict[str, Any]:
     status = session_store.get_session_status(session_id)
     if status is None:
         raise HTTPException(status_code=404, detail="Session not found")
+    # Keep monitor updates attached to the session being actively viewed by caregiver.
+    session_store.set_active_session(session_id)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return status
 
 
 @app.post("/api/test-alert")
-async def test_alert(sessionId: str = Query(..., min_length=1)) -> dict[str, Any]:
-    sent, detail = telegram_bot.send_test_alert(sessionId)
+async def test_alert(
+    sessionId: str | None = Query(None, min_length=1),
+    session_id: str | None = Query(None, min_length=1),
+) -> dict[str, Any]:
+    target_session = sessionId or session_id or session_store.active_session_id()
+    if target_session is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No active session. Open /monitor to create a session, then pair caregiver in Telegram.",
+        )
+
+    sent, detail = telegram_bot.send_test_alert(target_session)
     if not sent:
         raise HTTPException(status_code=400, detail=detail)
-    return {"ok": True, "sent": True, "sessionId": sessionId}
+    return {"ok": True, "sent": True, "sessionId": target_session}
 
 
 @app.get("/api/telegram/status")

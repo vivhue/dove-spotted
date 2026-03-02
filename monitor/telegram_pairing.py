@@ -17,6 +17,7 @@ from monitor.session_store import SessionStore
 logger = logging.getLogger(__name__)
 
 RED_EVENT_TYPES = {"fall", "cardiac_distress"}
+FAINT_REPEAT_INTERVAL_SEC = 5.0
 
 
 def _utc_now_iso() -> str:
@@ -47,7 +48,11 @@ class TelegramPairingBot:
         self._lock = threading.Lock()
         self._session_red_active: dict[str, bool] = {}
         self._session_red_context: dict[str, tuple[str, str]] = {}
+        self._session_faint_active: dict[str, bool] = {}
         self._last_sent_by_pair: dict[str, float] = {}
+        self._last_faint_sent_by_pair: dict[str, float] = {}
+        self._blocked_until_ts = 0.0
+        self._last_conflict_log_ts = 0.0
 
         if self._enabled:
             logger.info("Telegram pairing bot enabled (polling)")
@@ -59,6 +64,8 @@ class TelegramPairingBot:
             return
         if self._thread and self._thread.is_alive():
             return
+        # Polling cannot run while webhook mode is active.
+        self._delete_webhook()
         self._stop.clear()
         self._thread = threading.Thread(target=self._poll_loop, name="telegram-polling", daemon=True)
         self._thread.start()
@@ -81,6 +88,8 @@ class TelegramPairingBot:
         hr: float | None,
         confidence: float | None,
         timestamp: str,
+        faint_type: str | None,
+        faint_risk: float | None,
     ) -> None:
         if not self._enabled:
             return
@@ -95,34 +104,80 @@ class TelegramPairingBot:
             transition_to_red = (not was_red) and is_red
             self._session_red_active[session_id] = is_red
 
-            if not is_red:
-                if status != "critical":
-                    self._session_red_context.pop(session_id, None)
-                return
-
             chat_ids = self._store.get_chat_ids_for_session(session_id)
             if not chat_ids:
                 return
 
-            alert_type, alert_reason = red_context
             pairing_code = self._store.get_pairing_code(session_id)
             caregiver_url = self._build_caregiver_url(session_id)
             now_ts = time.time()
 
+            if is_red and red_context is not None:
+                alert_type, alert_reason = red_context
+                for chat_id in chat_ids:
+                    pair_key = f"{session_id}:{chat_id}"
+                    last_sent = self._last_sent_by_pair.get(pair_key)
+                    cooldown_ok = (
+                        last_sent is None
+                        or now_ts - last_sent >= self._settings.telegram_alert_cooldown_sec
+                    )
+                    if not transition_to_red and not cooldown_ok:
+                        continue
+                    payload = AlertPayload(
+                        session_id=session_id,
+                        pairing_code=pairing_code,
+                        alert_type=alert_type,
+                        reason=alert_reason,
+                        hr=hr,
+                        confidence=confidence,
+                        timestamp=timestamp,
+                        caregiver_url=caregiver_url,
+                    )
+                    sent = self._send_alert(chat_id, payload)
+                    if sent:
+                        self._last_sent_by_pair[pair_key] = now_ts
+            elif status != "critical":
+                self._session_red_context.pop(session_id, None)
+
+            # While fainting remains detected, keep sending repeating alerts.
+            faint_kind_from_event: str | None = None
+            if event_type and event_type.startswith("faint_"):
+                faint_kind_from_event = event_type.removeprefix("faint_")
+
+            faint_kind = (faint_type or faint_kind_from_event or "").strip()
+            faint_detected = bool(faint_kind)
+            was_faint = self._session_faint_active.get(session_id, False)
+            transition_to_faint = faint_detected and (not was_faint)
+            self._session_faint_active[session_id] = faint_detected
+            if not faint_detected:
+                return
+
+            risk_value = 0.0 if faint_risk is None else float(faint_risk)
+            faint_alert_type = f"FAINT_{faint_kind.upper()}"
+            faint_reason = (
+                f"Fainting still detected ({faint_kind}, risk={risk_value:.2f})."
+                if faint_kind
+                else f"Fainting still detected (risk={risk_value:.2f})."
+            )
             for chat_id in chat_ids:
                 pair_key = f"{session_id}:{chat_id}"
-                last_sent = self._last_sent_by_pair.get(pair_key)
-                cooldown_ok = (
-                    last_sent is None
-                    or now_ts - last_sent >= self._settings.telegram_alert_cooldown_sec
-                )
-                if not transition_to_red and not cooldown_ok:
+                last_faint_sent = self._last_faint_sent_by_pair.get(pair_key)
+                if (
+                    not transition_to_faint
+                    and last_faint_sent is not None
+                    and now_ts - last_faint_sent < FAINT_REPEAT_INTERVAL_SEC
+                ):
+                    continue
+                if (
+                    last_faint_sent is not None
+                    and now_ts - last_faint_sent < 0.4
+                ):
                     continue
                 payload = AlertPayload(
                     session_id=session_id,
                     pairing_code=pairing_code,
-                    alert_type=alert_type,
-                    reason=alert_reason,
+                    alert_type=faint_alert_type,
+                    reason=faint_reason,
                     hr=hr,
                     confidence=confidence,
                     timestamp=timestamp,
@@ -130,7 +185,7 @@ class TelegramPairingBot:
                 )
                 sent = self._send_alert(chat_id, payload)
                 if sent:
-                    self._last_sent_by_pair[pair_key] = now_ts
+                    self._last_faint_sent_by_pair[pair_key] = now_ts
 
     def send_test_alert(self, session_id: str) -> tuple[bool, str]:
         if not self._enabled:
@@ -141,7 +196,10 @@ class TelegramPairingBot:
 
         chat_ids = self._store.get_chat_ids_for_session(session_id)
         if not chat_ids:
-            return False, "No caregiver paired to this session"
+            return (
+                False,
+                "No caregiver paired to this session. In Telegram: /pair <6-digit-code>.",
+            )
 
         payload = AlertPayload(
             session_id=session_id,
@@ -169,6 +227,14 @@ class TelegramPairingBot:
             try:
                 for update in self._get_updates():
                     self._handle_update(update)
+            except urllib_error.HTTPError as exc:
+                details = exc.read().decode("utf-8", errors="replace")
+                if exc.code == 409:
+                    self._handle_polling_conflict(details)
+                    time.sleep(2.0)
+                    continue
+                logger.error("Telegram polling HTTP error %s: %s", exc.code, details)
+                time.sleep(2.0)
             except Exception:
                 logger.exception("Telegram polling loop error")
                 time.sleep(2.0)
@@ -275,6 +341,8 @@ class TelegramPairingBot:
         return self._send_text(chat_id, "\n".join(lines))
 
     def _send_text(self, chat_id: int, text: str) -> bool:
+        if time.time() < self._blocked_until_ts:
+            return False
         url = f"https://api.telegram.org/bot{self._token}/sendMessage"
         body = json.dumps(
             {
@@ -294,8 +362,56 @@ class TelegramPairingBot:
                 return 200 <= res.status < 300
         except urllib_error.HTTPError as exc:
             details = exc.read().decode("utf-8", errors="replace")
+            if exc.code == 429:
+                try:
+                    payload = json.loads(details)
+                    retry_after = float(
+                        (payload.get("parameters") or {}).get("retry_after", 1.0)
+                    )
+                except Exception:
+                    retry_after = 1.0
+                self._blocked_until_ts = max(
+                    self._blocked_until_ts,
+                    time.time() + max(1.0, retry_after),
+                )
             logger.error("Telegram API HTTP error %s: %s", exc.code, details)
             return False
         except Exception:
             logger.exception("Telegram API sendMessage failed")
+            return False
+
+    def _handle_polling_conflict(self, details: str) -> None:
+        now = time.time()
+        if now - self._last_conflict_log_ts >= 30.0:
+            self._last_conflict_log_ts = now
+            logger.warning("Telegram polling conflict (409): %s", details)
+
+        details_lower = details.lower()
+        if "webhook" in details_lower:
+            self._delete_webhook()
+        # Reset offset after conflict so polling can recover cleanly.
+        self._offset = None
+
+    def _delete_webhook(self) -> bool:
+        url = f"https://api.telegram.org/bot{self._token}/deleteWebhook"
+        body = json.dumps({"drop_pending_updates": False}).encode("utf-8")
+        req = urllib_request.Request(
+            url=url,
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib_request.urlopen(req, timeout=10) as res:
+                raw = json.loads(res.read().decode("utf-8", errors="replace"))
+            ok = bool(raw.get("ok"))
+            if ok:
+                logger.info("Telegram webhook cleared for polling mode")
+            return ok
+        except urllib_error.HTTPError as exc:
+            details = exc.read().decode("utf-8", errors="replace")
+            logger.warning("Telegram deleteWebhook HTTP error %s: %s", exc.code, details)
+            return False
+        except Exception:
+            logger.exception("Telegram deleteWebhook failed")
             return False
