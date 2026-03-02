@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dove Spotted Monitor</title>
+    <style>
+      :root {
+        --bg-start: #fff5e6;
+        --bg-end: #ffe2d3;
+        --panel: rgba(255, 255, 255, 0.88);
+        --ink: #1e1f25;
+        --muted: #6c6f7d;
+        --ok: #178f5b;
+        --warn: #c97307;
+        --critical: #b1142f;
+        --accent: #0b6e80;
+        --border: rgba(0, 0, 0, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 15% 15%, rgba(255, 255, 255, 0.7), transparent 45%),
+          linear-gradient(145deg, var(--bg-start), var(--bg-end));
+      }
+
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 24px 18px 36px;
+      }
+
+      .headline {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+      }
+
+      .title {
+        margin: 0;
+        font-size: clamp(1.6rem, 3.3vw, 2.4rem);
+        letter-spacing: 0.01em;
+      }
+
+      .subtitle {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .status-pill {
+        border-radius: 999px;
+        padding: 8px 16px;
+        color: #fff;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .status-normal {
+        background: var(--ok);
+      }
+
+      .status-warning {
+        background: var(--warn);
+      }
+
+      .status-critical {
+        background: var(--critical);
+      }
+
+      .status-initializing {
+        background: var(--accent);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .camera-panel {
+        margin-top: 16px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px;
+      }
+
+      .camera-title {
+        margin: 0 0 8px;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      .camera-feed {
+        width: 100%;
+        display: block;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #1d2330;
+        aspect-ratio: 4 / 3;
+        object-fit: cover;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px;
+        backdrop-filter: blur(4px);
+      }
+
+      .label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin: 0;
+      }
+
+      .value {
+        margin: 8px 0 0;
+        font-size: 1.45rem;
+        font-weight: 700;
+      }
+
+      .events {
+        margin-top: 22px;
+      }
+
+      .events h2 {
+        margin: 0 0 10px;
+        font-size: 1.15rem;
+      }
+
+      .event-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 8px;
+      }
+
+      .event {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-left-width: 5px;
+        border-radius: 10px;
+        padding: 10px 12px;
+      }
+
+      .event-critical {
+        border-left-color: var(--critical);
+      }
+
+      .event-warning {
+        border-left-color: var(--warn);
+      }
+
+      .event-time {
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+
+      .event-msg {
+        margin: 3px 0 0;
+        font-size: 0.92rem;
+      }
+
+      .hint {
+        margin-top: 16px;
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      .feed-hint {
+        margin-top: 8px;
+        font-size: 0.83rem;
+        color: var(--muted);
+      }
+
+      .conn {
+        margin-top: 6px;
+        font-size: 0.84rem;
+        color: var(--muted);
+      }
+
+      .conn-live {
+        color: var(--ok);
+      }
+
+      .conn-polling {
+        color: var(--warn);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <div class="headline">
+        <div>
+          <h1 class="title">Dove Spotted Live Monitor</h1>
+          <p class="subtitle">rPPG + pose fusion for cardiac distress and fall detection</p>
+        </div>
+        <div id="status" class="status-pill status-initializing">Initializing</div>
+      </div>
+
+      <section class="grid">
+        <article class="card">
+          <p class="label">Heart Rate (BPM)</p>
+          <p class="value" id="bpm">--</p>
+        </article>
+        <article class="card">
+          <p class="label">HR Confidence</p>
+          <p class="value" id="hrConfidence">--</p>
+        </article>
+        <article class="card">
+          <p class="label">Posture</p>
+          <p class="value" id="posture">--</p>
+        </article>
+        <article class="card">
+          <p class="label">Person Present</p>
+          <p class="value" id="personPresent">--</p>
+        </article>
+        <article class="card">
+          <p class="label">Person Source</p>
+          <p class="value" id="personSource">--</p>
+        </article>
+        <article class="card">
+          <p class="label">Fall Risk</p>
+          <p class="value" id="fallRisk">--</p>
+        </article>
+        <article class="card">
+          <p class="label">Faint Risk</p>
+          <p class="value" id="faintRisk">--</p>
+        </article>
+        <article class="card">
+          <p class="label">Seated Slump Score</p>
+          <p class="value" id="seatedSlumpScore">--</p>
+        </article>
+        <article class="card">
+          <p class="label">Faint Pattern</p>
+          <p class="value" id="faintType">--</p>
+        </article>
+        <article class="card">
+          <p class="label">Distress Score</p>
+          <p class="value" id="distressScore">--</p>
+        </article>
+        <article class="card">
+          <p class="label">Frame Rate</p>
+          <p class="value" id="fps">--</p>
+        </article>
+      </section>
+
+      <section class="camera-panel">
+        <p class="camera-title">Live Camera Feed (person + face + forehead ROI)</p>
+        <img id="cameraFeed" class="camera-feed" src="/video_feed" alt="Live camera feed" />
+        <p class="feed-hint" id="feedHint">Waiting for preview frames...</p>
+      </section>
+
+      <section class="events">
+        <h2>Recent Events</h2>
+        <ul id="eventList" class="event-list"></ul>
+      </section>
+
+      <p class="hint" id="sourceHint">Source: --</p>
+      <p class="conn conn-polling" id="connStatus">Connection: polling</p>
+    </main>
+
+    <script>
+      const statusEl = document.getElementById("status");
+      const bpmEl = document.getElementById("bpm");
+      const hrConfidenceEl = document.getElementById("hrConfidence");
+      const postureEl = document.getElementById("posture");
+      const personPresentEl = document.getElementById("personPresent");
+      const personSourceEl = document.getElementById("personSource");
+      const fallRiskEl = document.getElementById("fallRisk");
+      const faintRiskEl = document.getElementById("faintRisk");
+      const seatedSlumpScoreEl = document.getElementById("seatedSlumpScore");
+      const faintTypeEl = document.getElementById("faintType");
+      const distressScoreEl = document.getElementById("distressScore");
+      const fpsEl = document.getElementById("fps");
+      const sourceHintEl = document.getElementById("sourceHint");
+      const connStatusEl = document.getElementById("connStatus");
+      const eventListEl = document.getElementById("eventList");
+      const cameraFeedEl = document.getElementById("cameraFeed");
+      const feedHintEl = document.getElementById("feedHint");
+      let recentEvents = [];
+      let wsConnected = false;
+      let framePollTimer = null;
+
+      const stateFromApi = async () => {
+        try {
+          const res = await fetch("/api/state");
+          if (!res.ok) return;
+          const state = await res.json();
+          renderState(state);
+        } catch (_err) {}
+      };
+
+      const eventsFromApi = async () => {
+        try {
+          const res = await fetch("/api/events");
+          if (!res.ok) return;
+          const events = await res.json();
+          renderEvents(events);
+        } catch (_err) {}
+      };
+
+      const fmt = (v, digits = 1) =>
+        v === null || v === undefined || Number.isNaN(Number(v)) ? "--" : Number(v).toFixed(digits);
+
+      function updateConnectionBadge() {
+        if (wsConnected) {
+          connStatusEl.textContent = "Connection: live websocket";
+          connStatusEl.className = "conn conn-live";
+        } else {
+          connStatusEl.textContent = "Connection: polling fallback";
+          connStatusEl.className = "conn conn-polling";
+        }
+      }
+
+      function renderState(state) {
+        bpmEl.textContent = fmt(state.bpm, 1);
+        hrConfidenceEl.textContent = fmt(state.hr_confidence, 2);
+        postureEl.textContent = state.posture || "--";
+        personPresentEl.textContent = state.person_present ? "yes" : "no";
+        personSourceEl.textContent = state.person_source || "--";
+        fallRiskEl.textContent = fmt(state.fall_risk, 2);
+        faintRiskEl.textContent = fmt(state.faint_risk, 2);
+        seatedSlumpScoreEl.textContent = fmt(state.seated_slump_score, 2);
+        faintTypeEl.textContent = state.faint_type || "--";
+        distressScoreEl.textContent = fmt(state.distress_score, 2);
+        fpsEl.textContent = fmt(state.fps, 1);
+        sourceHintEl.textContent = `Source: ${state.source || "--"} | Last update: ${state.timestamp || "--"}`;
+
+        const status = (state.status || "initializing").toLowerCase();
+        statusEl.textContent = status;
+        statusEl.className = `status-pill status-${status}`;
+      }
+
+      function renderEvents(events) {
+        recentEvents = (events || []).slice(0, 30);
+        eventListEl.innerHTML = "";
+        if (recentEvents.length === 0) {
+          const li = document.createElement("li");
+          li.className = "event event-warning";
+          li.innerHTML = `<p class="event-time">No alerts yet</p><p class="event-msg">System is monitoring.</p>`;
+          eventListEl.appendChild(li);
+          return;
+        }
+
+        recentEvents.forEach((event) => {
+          const li = document.createElement("li");
+          li.className = `event event-${event.severity || "warning"}`;
+          li.innerHTML = `
+            <p class="event-time">${event.timestamp || "--"} | ${event.event_type || "event"} | ${(event.severity || "").toUpperCase()}</p>
+            <p class="event-msg">${event.message || ""}</p>
+          `;
+          eventListEl.appendChild(li);
+        });
+      }
+
+      function connectSocket() {
+        const proto = window.location.protocol === "https:" ? "wss" : "ws";
+        const ws = new WebSocket(`${proto}://${window.location.host}/ws/live`);
+        ws.onopen = () => {
+          wsConnected = true;
+          updateConnectionBadge();
+        };
+
+        ws.onmessage = (msg) => {
+          try {
+            const payload = JSON.parse(msg.data);
+            if (payload.state) renderState(payload.state);
+            if (payload.events) renderEvents(payload.events);
+            if (payload.event) {
+              renderEvents([payload.event, ...recentEvents]);
+            }
+          } catch (_err) {}
+        };
+
+        ws.onerror = () => {
+          wsConnected = false;
+          updateConnectionBadge();
+        };
+
+        ws.onclose = () => {
+          wsConnected = false;
+          updateConnectionBadge();
+          setTimeout(connectSocket, 1500);
+        };
+
+        return ws;
+      }
+
+      cameraFeedEl.onload = () => {
+        feedHintEl.textContent = "Preview is live. Boxes show tracked person/face regions.";
+      };
+      cameraFeedEl.onerror = () => {
+        feedHintEl.textContent = "Stream fallback active (snapshot mode).";
+        enableSnapshotFallback();
+      };
+
+      function enableSnapshotFallback() {
+        if (framePollTimer) return;
+        cameraFeedEl.src = `/api/frame.jpg?t=${Date.now()}`;
+        framePollTimer = setInterval(() => {
+          cameraFeedEl.src = `/api/frame.jpg?t=${Date.now()}`;
+        }, 280);
+      }
+
+      updateConnectionBadge();
+      stateFromApi();
+      eventsFromApi();
+      connectSocket();
+      setInterval(stateFromApi, 1000);
+      setInterval(eventsFromApi, 4000);
+    </script>
+  </body>
+</html>
