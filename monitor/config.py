@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+from pathlib import Path
 
 
 def _read_bool(name: str, default: bool) -> bool:
@@ -31,6 +32,26 @@ def _read_float(name: str, default: float) -> float:
         return default
 
 
+def _load_local_dotenv() -> None:
+    dotenv_path = Path(".env")
+    if not dotenv_path.exists():
+        return
+    try:
+        for raw_line in dotenv_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if not key:
+                continue
+            value = value.strip().strip("\"'")
+            os.environ.setdefault(key, value)
+    except Exception:
+        # Keep settings load resilient even if .env is malformed.
+        pass
+
+
 @dataclass(frozen=True)
 class Settings:
     camera_index: int
@@ -52,6 +73,8 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    # Load local .env for development; existing OS env vars still take precedence.
+    _load_local_dotenv()
     recipients_raw = os.getenv("SMS_RECIPIENTS", "")
     recipients = tuple(number.strip() for number in recipients_raw.split(",") if number.strip())
 

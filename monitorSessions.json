@@ -1,0 +1,47 @@
+{
+  "sessions": {
+    "605bb859-f139-4c58-ae42-7f72fc907ece": {
+      "pairingCode": "577430",
+      "createdAt": "2026-03-02T13:53:33Z",
+      "lastSeen": "2026-03-02T14:11:54Z",
+      "latestVitals": {
+        "bpm": 44.7,
+        "hr_confidence": 0.25,
+        "fps": 15.2,
+        "timestamp": "2026-03-02T14:11:54Z"
+      },
+      "latestRisk": {
+        "status": "normal",
+        "distress_score": 0.043,
+        "fall_risk": 0.038,
+        "faint_risk": 0.043,
+        "posture": "standing",
+        "timestamp": "2026-03-02T14:11:54Z"
+      },
+      "latestState": {
+        "timestamp": "2026-03-02T14:11:54Z",
+        "source": "camera:0:hr_only",
+        "bpm": 44.7,
+        "hr_confidence": 0.25,
+        "posture": "standing",
+        "torso_angle": null,
+        "person_present": true,
+        "person_source": "tracker",
+        "slanting": false,
+        "fall_risk": 0.038,
+        "faint_risk": 0.043,
+        "faint_type": null,
+        "heart_issue": null,
+        "manual_bpm": null,
+        "seated_slump_score": 0.0,
+        "distress_score": 0.043,
+        "status": "normal",
+        "fps": 15.2
+      }
+    }
+  },
+  "pairingCodeIndex": {
+    "577430": "605bb859-f139-4c58-ae42-7f72fc907ece"
+  },
+  "activeSessionId": "605bb859-f139-4c58-ae42-7f72fc907ece"
+}
