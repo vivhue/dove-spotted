@@ -48,37 +48,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-3. Set environment variables (optional defaults shown):
-
-Windows (PowerShell):
-
-```powershell
-Copy-Item .env.example .env
-```
-
-macOS/Linux:
-
-```bash
-cp .env.example .env
-```
-
-Then export values in your shell (or set them in your process manager):
-
-```bash
-CAMERA_INDEX=0
-SIMULATE_MODE=false
-FAINT_HIGH_SENSITIVITY=false
-WARNING_LOW_BPM=50
-WARNING_HIGH_BPM=120
-CRITICAL_LOW_BPM=45
-CRITICAL_HIGH_BPM=130
-ALERT_COOLDOWN_SEC=120
-TELEGRAM_BOT_TOKEN=...
-TELEGRAM_ALERT_COOLDOWN_SEC=120
-APP_PUBLIC_URL=http://127.0.0.1:8000
-```
-
-4. Run:
+3. Run:
 
 ```bash
 uvicorn main:app --reload
@@ -96,42 +66,14 @@ python -m uvicorn main:app --reload
 http://127.0.0.1:8000/monitor
 ```
 
-## Telegram Caregiver Alerts
-
-1. Create a Telegram bot with `@BotFather` and copy your `TELEGRAM_BOT_TOKEN`.
-2. Put `TELEGRAM_BOT_TOKEN` and `APP_PUBLIC_URL` in `.env` (or shell env).
-3. Start backend:
-
-```bash
-uvicorn main:app --reload
-```
-
 4. Open `http://127.0.0.1:8000/monitor` and note the 6-digit pairing code.
-5. In Telegram, open your bot chat and send:
+5. In Telegram, open bot chat '@Motiventra_Bot' and send:
 
 ```bash
 /pair <code>
 ```
 
-6. Check current Telegram bot status (polling enabled):
-
-```bash
-curl http://127.0.0.1:8000/api/telegram/status
-```
-
-7. Trigger a demo RED alert for that monitor session:
-
-```bash
-curl -X POST "http://127.0.0.1:8000/api/test-alert?sessionId=<sessionId>"
-```
-
-You should receive a caregiver message immediately in Telegram.
-
-8. Open caregiver dashboard:
-
-```text
-http://127.0.0.1:8000/caregiver/<sessionId>
-```
+6. The website will access your webcam to check detect a person's fainting spells. If detected, an alert will be sent to the caregiver (telegram paired with the bot) to notify them of possible signs. 
 
 Telegram send logic:
 - Monitor session shows a pairing code; caregiver uses `/pair <code>`.
