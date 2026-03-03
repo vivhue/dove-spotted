@@ -69,14 +69,14 @@ python -m uvicorn main:app --reload
 http://127.0.0.1:8000/monitor
 ```
 
-5. Open `http://127.0.0.1:8000/monitor` and note the 6-digit pairing code.
-6. In Telegram, open bot chat '@Motiventra_Bot' and send:
+6. Open `http://127.0.0.1:8000/monitor` and note the 6-digit pairing code.
+7. In Telegram, open bot chat '@Motiventra_Bot' and send:
 
 ```bash
 /pair <code>
 ```
 
-7. The website will access your webcam to check detect a person's fainting spells. If detected, an alert will be sent to the caregiver (telegram paired with the bot) to notify them of possible signs. 
+8. The website will access your webcam to check detect a person's fainting spells. If detected, an alert will be sent to the caregiver (telegram paired with the bot) to notify them of possible signs. 
 
 Telegram send logic:
 - Monitor session shows a pairing code; caregiver uses `/pair <code>`.
