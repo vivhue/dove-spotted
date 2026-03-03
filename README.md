@@ -25,8 +25,11 @@ Webcam-only monitoring service that:
 - `web/caregiver.html`: caregiver session dashboard.
 
 ## Quick Start
+1. Create a .env file in the root folder with contents:
+TELEGRAM_BOT_TOKEN=8623880967:AAE_HHLQuvWppt-M62DhxiGnsBnzUW8r7Nc
+APP_PUBLIC_URL=http://127.0.0.1:8000
 
-1. Create and activate a virtual environment.
+2. Create and activate a virtual environment.
 
 Windows (PowerShell):
 
@@ -42,13 +45,13 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-2. Install dependencies:
+3. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Run:
+4. Run:
 
 ```bash
 uvicorn main:app --reload
@@ -66,14 +69,14 @@ python -m uvicorn main:app --reload
 http://127.0.0.1:8000/monitor
 ```
 
-4. Open `http://127.0.0.1:8000/monitor` and note the 6-digit pairing code.
-5. In Telegram, open bot chat '@Motiventra_Bot' and send:
+5. Open `http://127.0.0.1:8000/monitor` and note the 6-digit pairing code.
+6. In Telegram, open bot chat '@Motiventra_Bot' and send:
 
 ```bash
 /pair <code>
 ```
 
-6. The website will access your webcam to check detect a person's fainting spells. If detected, an alert will be sent to the caregiver (telegram paired with the bot) to notify them of possible signs. 
+7. The website will access your webcam to check detect a person's fainting spells. If detected, an alert will be sent to the caregiver (telegram paired with the bot) to notify them of possible signs. 
 
 Telegram send logic:
 - Monitor session shows a pairing code; caregiver uses `/pair <code>`.
